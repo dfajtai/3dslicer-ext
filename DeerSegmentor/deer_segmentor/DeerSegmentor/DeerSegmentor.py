@@ -117,13 +117,7 @@ class DeerSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.tblDeers.selectionModel().selectionChanged.connect(self.selected_deer_changed)
     self.ui.tblDeers.itemChanged.connect(self.deer_tbl_changed)
-      
     
-    #self.ui.tbDBPath.connect("valueChanged(string)", self.updateParameterNodeFromGUI)
-    #self.ui.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    #self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    #self.ui.invertedOutputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-
     # Buttons
     #self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.ui.btnInitializeStudy.connect('clicked(bool)',self.onBtnInitializeStudy)
@@ -245,28 +239,7 @@ class DeerSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.SetParameter("ShowNonControl", "true" if self.ui.cbShowNonControl.checked else "false")
 
     self._parameterNode.EndModify(wasModified)
-
-  def onApplyButton(self):
-    """
-    Run processing when user clicks "Apply" button.
-    """
-    try:
-
-      # Compute output
-      self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
-        self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
-
-      # Compute inverted output (if needed)
-      if self.ui.invertedOutputSelector.currentNode():
-        # If additional output volume is selected then result with inverted threshold is written there
-        self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
-          self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
-
-    except Exception as e:
-      slicer.util.errorDisplay("Failed to compute results: "+str(e))
-      import traceback
-      traceback.print_exc()
-  
+ 
   def onBtnSelectDB(self):
     _orig_file = str(self._parameterNode.GetParameter("DatabaseCSVPath"))
     _orig_dir = os.path.dirname(_orig_file)
@@ -767,7 +740,6 @@ class Deer():
     rel_node_disp.SetThreshold(1,300)
     rel_node_disp.ApplyThresholdOn()
     rel_node_disp.SetWindowLevel(1,2)
-
 
 
   def save(self):
