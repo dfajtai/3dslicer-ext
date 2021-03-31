@@ -686,7 +686,16 @@ class Deer():
     #load rel
     rel_node = slicer.util.loadVolume(self.rel_path)
     self.node_dict[self.rel_path] = rel_node
-  
+
+    slicer.util.setSliceViewerLayers(background=t1_node,foreground=rel_node,foregroundOpacity=0.45)
+    rel_node_disp = rel_node.GetDisplayNode()
+    rel_node_disp.SetAndObserveColorNodeID('vtkMRMLColorTableNodeRed')
+    rel_node_disp.SetThreshold(1,300)
+    rel_node_disp.ApplyThresholdOn()
+    rel_node_disp.SetWindowLevel(1,2)
+    
+    #return 
+
     #segmentation:
     # mask = total mask of non-air voxels
     # non-liver = abnormal tissue inside mask
@@ -697,7 +706,8 @@ class Deer():
       print("loading previous segmentation...")
       segmentationNode = slicer.util.loadSegmentation(self.segment_path)
       segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.t1_path])
-
+      segmentationNode.GetDisplayNode().SetOpacity(0.8)
+      
       self.node_dict[self.segment_path] = segmentationNode 
       self.writeable_node_paths.append(self.segment_path)
       
@@ -731,15 +741,12 @@ class Deer():
 
       self.node_dict[self.segment_path] = segmentationNode
       self.writeable_node_paths.append(self.segment_path)
-
-    segmentationNode.GetDisplayNode().SetOpacity(0.5)
+      segmentationNode.GetDisplayNode().SetOpacity(0.8)
+      print("initialization done")
 
     slicer.util.setSliceViewerLayers(background=t1_node,foreground=rel_node,foregroundOpacity=0.45)
-    rel_node_disp = rel_node.GetDisplayNode()
-    rel_node_disp.SetAndObserveColorNodeID('vtkMRMLColorTableNodeRed')
-    rel_node_disp.SetThreshold(1,300)
-    rel_node_disp.ApplyThresholdOn()
-    rel_node_disp.SetWindowLevel(1,2)
+
+
 
 
   def save(self):
