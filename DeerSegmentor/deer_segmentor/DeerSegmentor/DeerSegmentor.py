@@ -671,8 +671,6 @@ class Deer():
   
 
   def load(self):
-    self.customize_workplace()
-
     print(f"loading deer {self.sid}")
 
     #load t1
@@ -746,6 +744,7 @@ class Deer():
 
     slicer.util.setSliceViewerLayers(background=t1_node,foreground=rel_node,foregroundOpacity=0.45)
 
+    self.customize_workplace()
 
 
 
