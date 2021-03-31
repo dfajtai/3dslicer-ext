@@ -666,7 +666,7 @@ class Deer():
     
     crosshair=slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLCrosshairNode")
     crosshair.SetCrosshairBehavior(crosshair.OffsetJumpSlice)
-    crosshair.SetCrosshairToFine()
+    crosshair.SetCrosshairToMedium()
     crosshair.SetCrosshairMode(crosshair.ShowSmallBasic)
   
 
