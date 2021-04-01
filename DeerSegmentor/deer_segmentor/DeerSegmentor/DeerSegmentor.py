@@ -338,6 +338,9 @@ class DeerSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if str(current_done) == "1":
           for j in range(tbl.columnCount):
             tbl.item(current_selection.row(),j).setBackground(qt.QColor(0,127,0))
+        else:
+          for j in range(tbl.columnCount):
+            tbl.item(current_selection.row(),j).setBackground(qt.QColor("transparent"))
     
         if current_selection.column() == tbl.columnCount-1:
           #modify done in table
