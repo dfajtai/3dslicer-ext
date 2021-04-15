@@ -17,7 +17,7 @@
       <string>Study settings</string>
      </property>
      <property name="collapsed">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="collapsedHeight">
       <number>0</number>
@@ -70,6 +70,13 @@
           <widget class="QLineEdit" name="tbPresegPath"/>
          </item>
         </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnBatchExport">
+        <property name="text">
+         <string>Batch Export</string>
+        </property>
        </widget>
       </item>
      </layout>

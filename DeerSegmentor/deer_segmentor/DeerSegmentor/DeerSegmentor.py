@@ -38,7 +38,6 @@ class DeerSegmentor(ScriptedLoadableModule):
     slicer.app.connect("startupCompleted()", registerSampleData)
 
 
-
 #
 # Register sample data sets in Sample Data module
 #
@@ -124,6 +123,7 @@ class DeerSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.btnSelectDB.connect('clicked(bool)',self.onBtnSelectDB)
     self.ui.btnSelectPreseg.connect('clicked(bool)',self.onBtnSelectPreseg)
 
+    self.ui.btnBatchExport.connect('clicked(bool)',self.onBtnBatchExport)
     self.ui.btnLoadSelected.connect('clicked(bool)',self.onBtnLoadSelected)
     self.ui.btnSaveActiveDeer.connect('clicked(bool)',self.onBtnSaveActiveDeer)
     self.ui.btnCloseActiveDeer.connect('clicked(bool)',self.onBtnCloseActiveDeer)
@@ -404,6 +404,14 @@ class DeerSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       traceback.print_exc()
   
 
+  def onBtnBatchExport(self):
+    import importlib.util
+    batch_export_py_path =  "/home/fajtai/Git/3dslicer-ext/DeerSegmentor/deer_segmentor/DeerSegmentor/batch_exporter.py"
+    spec = importlib.util.spec_from_file_location("module.name",batch_export_py_path)
+    exporter = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(exporter)
+    exporter.test()
+
 
 #
 # DeerSegmentorLogic
@@ -542,17 +550,19 @@ class DeerSegmentorLogic(ScriptedLoadableModuleLogic):
 
     return True
   
-  def close_active_deer(self):
-    
+  def close_active_deer(self, no_question = False):
+    if no_question and not isinstance(self.active_deer,type(None)):
+      self.active_deer.close()
+      self.active_deer = None
+      return
+
     if not isinstance(self.active_deer,Deer):
       self.info_message_box("There is no active deer to close.")
       return
 
     if not self.confim_message_box("Do you really want to close the active deer?"):
       return
-
     self.active_deer.close()
-
     self.active_deer = None
 
   def save_active_deer(self):
@@ -728,7 +738,7 @@ class Deer():
       t1m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(t1_mask_node)
       t2m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(t2_mask_node)
       
-      segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(t1m_img,"t1_mask",[0,0.2,0.8])
+      segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(t1m_img,"t1_mask", [0,0.2,0.8])
       segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(t2m_img,"t2_mask", [0.8,0.1,0.8])
 
       #create empty volume
