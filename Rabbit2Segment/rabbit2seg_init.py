@@ -60,7 +60,7 @@ def initialize(current_nas_path, target_nas_path, source_folder, target_folder, 
 if __name__ == "__main__":
   current_nas_path = "/nas/medicopus_share"
   target_nas_path = "Z:"
-  #target_nas_path = "/nas/medicopus_share"
+  # target_nas_path = "/nas/medicopus_share"
   source_folder = os.path.join("Projects","hycole","atlas")
   target_folder =  os.path.join("Projects","hycole","segmentation") 
   etc_folder =  os.path.join("Projects","hycole","etc")
