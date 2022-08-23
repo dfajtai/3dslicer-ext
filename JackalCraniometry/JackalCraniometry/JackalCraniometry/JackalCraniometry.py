@@ -1,5 +1,6 @@
 import logging
 import os
+from pydoc import classname
 from re import S
 
 import qt
@@ -13,10 +14,8 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
-#stored_data_path = "Z:/"
 stored_data_path = "/nas/medicopus_share/Projects/jackal"
 current_data_path = "/nas/medicopus_share/Projects/jackal"
-#current_data_path = stored_data_path
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","preproc_paths.csv")
@@ -152,7 +151,16 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
     """
     Called when the application closes and the module widget is destroyed.
     """
+    tmpdict = slicer.util.getNodes(useLists=True)
+    for k, v in tmpdict.items():
+      try:
+        if isinstance(v.GetSingletonTag(),type(None)):
+          slicer.mrmlScene.RemoveNode(v)
+      except:
+        continue
+
     self.removeObservers()
+
 
   def enter(self):
     """
@@ -165,7 +173,7 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
     """
     Called each time the user opens a different module.
     """
-    # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
+    # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
     self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
   def onSceneStartClose(self, caller, event):
@@ -428,15 +436,16 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
 class JackalCraniometryLogic(ScriptedLoadableModuleLogic):
 
+  _database_csv_path_ = fix_path(__database_csv_path__)
+  _preseg_csv_path_ =  fix_path(__preseg_csv_path__)
+  _study_dir_ = fix_path(__study_dir__)
+  _root_dir_ = fix_path(current_data_path)
+
   def __init__(self):
     """
     Called when the logic class is instantiated. Can be used for initializing member variables.
     """
     ScriptedLoadableModuleLogic.__init__(self)
-
-    self._database_csv_path_ = fix_path(__database_csv_path__)
-    self._preseg_csv_path_ =  fix_path(__preseg_csv_path__)
-    self._study_dir_ = fix_path(__study_dir__)
 
     self.dbTable = None
     self.dbDictList = []
@@ -543,7 +552,7 @@ class JackalCraniometryLogic(ScriptedLoadableModuleLogic):
     c.setDefaultButton(qt.QMessageBox.Ok)
     answer = c.exec_()
 
-  def load_specimen(self, ID):
+  def load_specimen(self, ID, volume_rendering = True):
     target_specimen = self.Specimens.get(ID)
 
     if isinstance(self.active_specimen,Specimen):
@@ -553,7 +562,7 @@ class JackalCraniometryLogic(ScriptedLoadableModuleLogic):
     if isinstance(target_specimen,type(None)):
       raise ValueError(f"Specimen with ID={ID} not initialized")
 
-    target_specimen.load()
+    target_specimen.load(volume_rendering = volume_rendering)
 
     self.active_specimen = target_specimen
 
@@ -661,6 +670,11 @@ class Specimen():
   def slicer_out_dir(self):
     return os.path.join(self.study_dir,str(self.ID).upper())
 
+  @property
+  def final_save_dir(self):
+    # return os.path.join(self.study_dir,"results",str(self.ID).upper())
+    return os.path.join(JackalCraniometryLogic._root_dir_,"results")
+
   def update_done(self,table):
     try:
       self.db_info["done"] = table.GetCellText(self.row_index,self.done_col_index)
@@ -705,7 +719,7 @@ class Specimen():
             slicer.mrmlScene.RemoveNode(r)
         self.volume_rendering_roi = []    
 
-  def load(self):
+  def load(self, volume_rendering = True):
     print(f"loading specimen {self.ID}")
 
     #load MR
@@ -732,7 +746,8 @@ class Specimen():
     
     
     self.customize_workplace()
-    self.start_volume_rendering()
+    if volume_rendering:
+      self.start_volume_rendering()
 
 
   def save(self):
@@ -748,7 +763,7 @@ class Specimen():
       _storageNode = node.CreateDefaultStorageNode()
       _storageNode.SetFileName(path)
       _storageNode.WriteData(node)
-
+      slicer.mrmlScene.RemoveNode(_storageNode)
 
   def close(self):
     print(f"closing specimen {self.ID}")
@@ -757,13 +772,33 @@ class Specimen():
     for k in self.node_dict.keys():
       try:
         node = self.node_dict[k]
+        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
         slicer.mrmlScene.RemoveNode(node)
       except:
         remaining_nodes[k] = node
+
+    if not isinstance(self.volume_rendering_node,type(None)):
+      slicer.mrmlScene.RemoveNode(self.volume_rendering_node)
+    if not isinstance(self.volume_rendering_roi,type(None)):
+      for n in self.volume_rendering_roi:
+          slicer.mrmlScene.RemoveNode(n)
     
-    slicer.mrmlScene.RemoveNode(self.volume_rendering_node)
-    for n in self.volume_rendering_roi:
-        slicer.mrmlScene.RemoveNode(n)
+    try:
+      classnames = ["vtkMRMLVolumePropertyNode","vtkMRMLScalarVolumeDisplayNode"]
+      for c in classnames:
+        ns = slicer.mrmlScene.GetNodesByClass(c)
+        for n in ns:
+          slicer.mrmlScene.RemoveNode(n)
+      
+      tmpdict = slicer.util.getNodes(useLists=True)
+      for k, v in tmpdict.items():
+        
+        if str(k).endswith("Default") or str(k).endswith("DefaultCopy"):
+          slicer.mrmlScene.RemoveNode(v[0])
+
+    except Exception as e:
+      print(e)
+
     self.node_dict = dict(remaining_nodes)
        
 def batch_exporter():
@@ -778,9 +813,19 @@ def batch_exporter():
         if not specimen.db_info["done"]=='1':
             continue
         #open specimen
-        slicer.modules.JackalCraniometryWidget.logic.load_specimen(sid)
+        slicer.modules.JackalCraniometryWidget.logic.load_specimen(sid,volume_rendering= False)
 
-        volume = specimen.node_dict[specimen.cranium_path]
-        
+        markups_node = specimen.node_dict[specimen.markups_path]
+        if not os.path.isdir(specimen.final_save_dir):
+          os.makedirs(specimen.final_save_dir,exist_ok=True)
+
+        markups_save_path = os.path.join(specimen.final_save_dir,f"{str(specimen.ID).upper()}_markups.mrk.json")
+
+        storageNode = markups_node.CreateDefaultStorageNode()
+        storageNode.SetFileName(markups_save_path)
+        storageNode.WriteData(markups_node)
+
+        slicer.mrmlScene.RemoveNode(storageNode)
+
         #close specimen
         slicer.modules.JackalCraniometryWidget.logic.close_active_specimen(True)
