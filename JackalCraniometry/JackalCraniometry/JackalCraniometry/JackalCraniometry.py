@@ -14,6 +14,7 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
+rel_paths = True
 stored_data_path = "/nas/medicopus_share/Projects/jackal"
 current_data_path = "/nas/medicopus_share/Projects/jackal"
 
@@ -23,6 +24,9 @@ __study_dir__ =  os.path.join(current_data_path,"preprocessed")
 
 
 def fix_path(path):
+  if rel_paths:
+    return add_current_path(path)
+  else:
     return str(path).replace(stored_data_path,current_data_path)
 
 def add_current_path(rel_path):
