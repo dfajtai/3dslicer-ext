@@ -15,8 +15,8 @@ from slicer.util import VTKObservationMixin
 
 
 rel_paths = True
-#stored_data_path = "/nas/medicopus_share/Projects/jackal"
-current_data_path = "/nas/medicopus_share/Projects/jackal"
+#stored_data_path = "/nas/medicopus_share/Projects/Fish"
+current_data_path = "/nas/medicopus_share/Projects/Fish/HAL-MATE"
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","preproc_paths.csv")
@@ -34,24 +34,24 @@ def add_current_path(rel_path):
 
 
 #
-# JackalCraniometry
+# FishMorphometry
 #
 
-class JackalCraniometry(ScriptedLoadableModule):
+class FishMorphometry(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "JackalCraniometry"  # TODO: make this more human readable by adding spaces
+    self.parent.title = "FishMorphometry"  # TODO: make this more human readable by adding spaces
     self.parent.categories = ["Quantification"]  # TODO: set categories (folders where the module shows up in the module selector)
     self.parent.dependencies = []  # TODO: add here list of module names that this module requires
     self.parent.contributors = ["Daniel Fajtai"]  # TODO: replace with "Firstname Lastname (Organization)"
     # TODO: update with short description of the module and a link to online module documentation
     self.parent.helpText = """
     This is an example of scripted loadable module bundled in an extension.
-    See more information in <a href="https://github.com/organization/projectname#JackalCraniometry">module documentation</a>.
+    See more information in <a href="https://github.com/organization/projectname#FishMorphometry">module documentation</a>.
     """
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """"""
@@ -74,13 +74,13 @@ def registerSampleData():
 
   import SampleData
   iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
-  print("Sample for JackalCraniometry not implemented")
+  print("Sample for FishMorphometry not implemented")
 
 #
-# JackalCraniometryWidget
+# FishMorphometryWidget
 #
 
-class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
@@ -107,7 +107,7 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath('UI/JackalCraniometry.ui'))
+    uiWidget = slicer.util.loadUI(self.resourcePath('UI/FishMorphometry.ui'))
     self.layout.addWidget(uiWidget)
     self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -118,7 +118,7 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
-    self.logic = JackalCraniometryLogic()
+    self.logic = FishMorphometryLogic()
 
     # Connections
 
@@ -438,7 +438,7 @@ class JackalCraniometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
   def onBtnBatchExport(self):
     batch_exporter()
 
-class JackalCraniometryLogic(ScriptedLoadableModuleLogic):
+class FishMorphometryLogic(ScriptedLoadableModuleLogic):
 
   _database_csv_path_ = fix_path(__database_csv_path__)
   _preseg_csv_path_ =  fix_path(__preseg_csv_path__)
@@ -605,10 +605,10 @@ class JackalCraniometryLogic(ScriptedLoadableModuleLogic):
     return isinstance(self.active_specimen,Specimen)
 
 #
-# JackalCraniometryTest
+# FishMorphometryTest
 #
 
-class JackalCraniometryTest(ScriptedLoadableModuleTest):
+class FishMorphometryTest(ScriptedLoadableModuleTest):
   def setUp(self):
     """ Do whatever is needed to reset the state - typically a scene clear will be enough.
     """
@@ -649,10 +649,8 @@ class Specimen():
     if len(preseg_row)>0:
       self.preseg_paths = preseg_row[0]
 
-    self.mandibula_path = fix_path(str(self.preseg_paths["mandibula"]).replace(2*os.sep,os.sep))
-    self.cranium_path = fix_path(str(self.preseg_paths["cranium"]).replace(2*os.sep,os.sep))
-    self.mandibula_mask_path = fix_path(str(self.preseg_paths["mandibula_mask"]).replace(2*os.sep,os.sep))
-    self.cranium_mask_path = fix_path(str(self.preseg_paths["cranium_mask"]).replace(2*os.sep,os.sep))
+    self.ct_path = fix_path(str(self.preseg_paths["CT"]).replace(2*os.sep,os.sep))
+    self.bone_mask_path = fix_path(str(self.preseg_paths["bone_mask"]).replace(2*os.sep,os.sep))
     self.markups_path = fix_path(str(self.preseg_paths["markups"]).replace(2*os.sep,os.sep))
     self.initial_markups_path = fix_path(str(self.preseg_paths["initial_markups"]).replace(2*os.sep,os.sep))
 
@@ -677,7 +675,7 @@ class Specimen():
   @property
   def final_save_dir(self):
     # return os.path.join(self.study_dir,"results",str(self.ID).upper())
-    return os.path.join(JackalCraniometryLogic._root_dir_,"results")
+    return os.path.join(FishMorphometryLogic._root_dir_,"results")
 
   def update_done(self,table):
     try:
@@ -713,25 +711,26 @@ class Specimen():
     displayNode = logic.CreateVolumeRenderingDisplayNode()
     displayNode.UnRegister(logic)
     slicer.mrmlScene.AddNode(displayNode)
-    self.node_dict[self.cranium_mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
-    logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.cranium_mask_path])
+    self.node_dict[self.bone_mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
+    logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.bone_mask_path])
     self.volume_rendering_node = displayNode  
     self.volume_rendering_roi = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
 
     if autoremove:
         for r in self.volume_rendering_roi:
             slicer.mrmlScene.RemoveNode(r)
-        self.volume_rendering_roi = []    
+        self.volume_rendering_roi = []
+    
 
   def load(self, volume_rendering = True):
     print(f"loading specimen {self.ID}")
 
-    #load MR
-    cranium_node = slicer.util.loadVolume(self.cranium_path)
-    self.node_dict[self.cranium_path] = cranium_node
+    #load ct
+    ct_node = slicer.util.loadVolume(self.ct_path)
+    self.node_dict[self.ct_path] = ct_node
 
-    cranium_mask_node = slicer.util.loadVolume(self.cranium_mask_path)
-    self.node_dict[self.cranium_mask_path] = cranium_mask_node
+    bone_mask_node = slicer.util.loadVolume(self.bone_mask_path)
+    self.node_dict[self.bone_mask_path] = bone_mask_node
 
 
     # load markups
@@ -746,7 +745,7 @@ class Specimen():
 
     self.writeable_node_paths.append(self.markups_path)
     
-    slicer.util.setSliceViewerLayers(background=cranium_node)
+    slicer.util.setSliceViewerLayers(background=ct_node)
     
     
     self.customize_workplace()
@@ -808,16 +807,16 @@ class Specimen():
 def batch_exporter():
     import vtk, qt, ctk, slicer
     import os
-    if slicer.modules.JackalCraniometryWidget.logic.hasActiveSpecimen:
+    if slicer.modules.FishMorphometryWidget.logic.hasActiveSpecimen:
         print("Please close active specimen!")
         return
     
-    slicer.modules.JackalCraniometryWidget.onBtnInitializeStudy()
-    for sid, specimen in slicer.modules.JackalCraniometryWidget.logic.Specimens.items():
+    slicer.modules.FishMorphometryWidget.onBtnInitializeStudy()
+    for sid, specimen in slicer.modules.FishMorphometryWidget.logic.Specimens.items():
         if not specimen.db_info["done"]=='1':
             continue
         #open specimen
-        slicer.modules.JackalCraniometryWidget.logic.load_specimen(sid,volume_rendering= False)
+        slicer.modules.FishMorphometryWidget.logic.load_specimen(sid,volume_rendering= False)
 
         markups_node = specimen.node_dict[specimen.markups_path]
         if not os.path.isdir(specimen.final_save_dir):
@@ -832,4 +831,4 @@ def batch_exporter():
         slicer.mrmlScene.RemoveNode(storageNode)
 
         #close specimen
-        slicer.modules.JackalCraniometryWidget.logic.close_active_specimen(True)
+        slicer.modules.FishMorphometryWidget.logic.close_active_specimen(True)
