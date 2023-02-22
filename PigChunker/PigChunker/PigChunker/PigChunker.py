@@ -15,7 +15,7 @@ from slicer.util import VTKObservationMixin
 
 stored_nas_path = "Z:/"
 current_nas_path = "/nas/medicopus_share/"
-current_nas_path = stored_nas_path
+# current_nas_path = stored_nas_path
 
 __database_csv_path__ = os.path.join(current_nas_path,"Projects","HARIBO","etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_nas_path,"Projects","HARIBO","etc","img_paths.csv")
@@ -357,7 +357,8 @@ class PigChunkerWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if current_selection.column() == tbl.columnCount-1:
           #modify done in table
           tbl_selected_ID = self.ui.tblSpecimens.item(current_selection.row(),0).text()
-          specimen = self.logic.Specimens[tbl_selected_ID]
+          tbl_selected_measurement = self.ui.tblSpecimens.item(current_selection.row(),1).text()
+          specimen = self.logic.Specimens[(tbl_selected_ID,tbl_selected_measurement)]
           self.logic.dbTable.SetCellText(specimen.row_index,specimen.done_col_index, current_done)
         else:
           # ducktaped...
@@ -378,7 +379,7 @@ class PigChunkerWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if not self.tbl_selected_ID:
         return
 
-      load_success = self.logic.load_specimen(self.tbl_selected_ID)
+      load_success = self.logic.load_specimen(self.tbl_selected_ID,self.tbl_selected_measurement)
       self.ui.btnLoadSelected.enabled = not self.logic.hasActiveSpecimen
       if self.logic.hasActiveSpecimen:
         self.ui.lblActiveSpecimen.text= f"{self.logic.active_specimen.ID} : {self.logic.active_specimen.measurement}"
@@ -546,7 +547,7 @@ class PigChunkerLogic(ScriptedLoadableModuleLogic):
     c.setDefaultButton(qt.QMessageBox.Ok)
     answer = c.exec_()
 
-  def load_specimen(self, ID, measurement):
+  def load_specimen(self, ID, measurement,load_bg = True):
     target_specimen = self.Specimens.get((ID,measurement))
 
     if isinstance(self.active_specimen,Specimen):
@@ -556,7 +557,7 @@ class PigChunkerLogic(ScriptedLoadableModuleLogic):
     if isinstance(target_specimen,type(None)):
       raise ValueError(f"Specimen with ID={ID} not initialized")
 
-    target_specimen.load()
+    target_specimen.load(load_bg = load_bg)
 
     self.active_specimen = target_specimen
 
@@ -642,7 +643,7 @@ class Specimen():
 
     self.row_index = 0
     for i in range(len(dbDictList)):
-      if dbDictList[i]["ID"]==ID and x["measurement"]==measurement:
+      if dbDictList[i]["ID"]==ID and dbDictList[i]["measurement"]==measurement:
         break
     self.row_index = i
     
@@ -703,12 +704,13 @@ class Specimen():
         seg_node.GetDisplayNode().SetSegmentOpacity2DOutline(seg_id,1)
     
   
-  def load(self):
+  def load(self,load_bg = True):
     print(f"loading specimen {self.ID} measurement {self.measurement}")
 
     #load background image
-    bg_node = slicer.util.loadVolume(self.bg_path)
-    self.node_dict[self.bg_path] = bg_node
+    if load_bg or not os.path.exists(self.segment_path):
+      bg_node = slicer.util.loadVolume(self.bg_path)
+      self.node_dict[self.bg_path] = bg_node
 
     # load mask
     mask_node = slicer.util.loadVolume(self.mask_path)
@@ -720,11 +722,14 @@ class Specimen():
       # if segmentation file exists -> load it
       print("loading previous segmentation...")
       segmentationNode = slicer.util.loadSegmentation(self.segment_path)
-      segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.bg_path])
-      segmentationNode.GetDisplayNode().SetOpacity(.5)
+      if load_bg:
+        segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.bg_path])
+      else:
+        segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.mask_path])  
       
-      self.node_dict[self.segment_path] = segmentationNode 
-      self.writeable_node_paths.append(self.segment_path)
+      # segmentationNode.GetDisplayNode().SetOpacity(.5)
+      # self.node_dict[self.segment_path] = segmentationNode 
+      # self.writeable_node_paths.append(self.segment_path)
       
     
     else:
@@ -765,13 +770,13 @@ class Specimen():
         empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
         segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(empty,"chunk", [.6,0.8,0.2])
 
-      self.node_dict[self.segment_path] = segmentationNode
-      self.writeable_node_paths.append(self.segment_path)
-      segmentationNode.GetDisplayNode().SetOpacity(.5)
-      print("initialization done")
+    self.node_dict[self.segment_path] = segmentationNode
+    self.writeable_node_paths.append(self.segment_path)
+    segmentationNode.GetDisplayNode().SetOpacity(.5)
+    print("initialization done")
 
-
-    slicer.util.setSliceViewerLayers(background=bg_node,foreground=mask_node,foregroundOpacity=0.15)
+    if load_bg:
+      slicer.util.setSliceViewerLayers(background=bg_node,foreground=mask_node,foregroundOpacity=0.15)
 
     self.customize_workplace()
 
@@ -813,16 +818,16 @@ def batch_exporter():
         return
     
     slicer.modules.PigChunkerWidget.onBtnInitializeStudy()
-    for sid, specimen in slicer.modules.PigChunkerWidget.logic.Specimens.items():
+    for (sid,measurement), specimen in slicer.modules.PigChunkerWidget.logic.Specimens.items():
         if not specimen.db_info["done"]=='1':
             continue
         #open specimen
-        slicer.modules.PigChunkerWidget.logic.load_specimen(sid)
+        slicer.modules.PigChunkerWidget.logic.load_specimen(sid,measurement,load_bg = False)
 
         segmentation_node = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode").GetItemAsObject(0)
         accepted = ["chunk","body"]
 
-        volume = specimen.node_dict[specimen.bg_path]
+        volume = specimen.node_dict[specimen.mask_path]
         
 
         for seg_name in accepted:
