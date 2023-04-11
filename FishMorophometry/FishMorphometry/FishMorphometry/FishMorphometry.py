@@ -156,6 +156,8 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.tblSpecimens.selectionModel().selectionChanged.connect(self.selected_specimen_changed)
     self.ui.tblSpecimens.itemChanged.connect(self.specimen_tbl_changed)
+
+    self.ui.lblIntraobserverTrials.text = str(intraobserver_trials)
     
     # Buttons
     #self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
