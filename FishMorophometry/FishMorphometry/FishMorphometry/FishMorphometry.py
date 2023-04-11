@@ -13,6 +13,9 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
+# set this variable to define how many trials will be done per specimen
+intraobserver_trials = 3
+
 
 rel_paths = True
 #stored_data_path = "/nas/medicopus_share/Projects/Fish"
@@ -32,6 +35,23 @@ def fix_path(path):
 def add_current_path(rel_path):
     return os.path.join(str(current_data_path), rel_path)
 
+
+def confim_message_box(text):
+  c = ctk.ctkMessageBox()
+  c.setIcon(qt.QMessageBox.Information)
+  c.setText(text)
+  c.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
+  c.setDefaultButton(qt.QMessageBox.Ok)
+  answer = c.exec_()
+  return answer == qt.QMessageBox.Yes
+
+def info_message_box(text):
+  c = ctk.ctkMessageBox()
+  c.setIcon(qt.QMessageBox.Information)
+  c.setText(text)
+  c.setStandardButtons(qt.QMessageBox.Ok)
+  c.setDefaultButton(qt.QMessageBox.Ok)
+  answer = c.exec_()
 
 #
 # FishMorphometry
@@ -95,6 +115,8 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode = None
     self._updatingGUIFromParameterNode = False
 
+    self.is_initialized = False
+
     self.tbl_selected_ID = ""
     self.tblSelectedIndex = None
     self.table_lock = False
@@ -142,6 +164,8 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.btnSelectPreseg.connect('clicked(bool)',self.onBtnSelectPreseg)
 
     self.ui.btnBatchExport.connect('clicked(bool)',self.onBtnBatchExport)
+    self.ui.btnPurgeMarkups.connect('clicked(bool)',self.onBtnPurgeMarkups)
+
     self.ui.btnLoadSelected.connect('clicked(bool)',self.onBtnLoadSelected)
     self.ui.btnSaveActiveSpecimen.connect('clicked(bool)',self.onBtnSaveActiveSpecimen)
     self.ui.btnCloseActiveSpecimen.connect('clicked(bool)',self.onBtnCloseActiveSpecimen)
@@ -290,6 +314,8 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
   def onBtnInitializeStudy(self):
+    if self.is_initialized:
+      return
     try:
       print("btnInitializeStudy clicked")
       self.logic.initializeStudy()
@@ -362,7 +388,7 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.tblSelectedIndex = current_selection
         current_done = tbl.item(current_selection.row(),tbl.columnCount-1).text()
         
-        if str(current_done) == "1":
+        if str(current_done) == str(intraobserver_trials):
           for j in range(tbl.columnCount):
             tbl.item(current_selection.row(),j).setBackground(qt.QColor(0,127,0))
         else:
@@ -437,6 +463,36 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onBtnBatchExport(self):
     batch_exporter()
+
+  def onBtnPurgeMarkups(self):
+    if self.logic.hasActiveSpecimen:
+      info_message_box("Please close active specimen!")
+      return
+    
+    self.onBtnInitializeStudy()
+
+    if not confim_message_box("You are goning to purge all saved markups. Do you want to proceed?"):
+      return
+    
+    if not confim_message_box("Do you REALLY want to purge the markups of all specimen? Warning, this operation can not be undone."):
+      return
+
+    for sid, specimen in slicer.modules.FishMorphometryWidget.logic.Specimens.items():
+      default_markups_node = slicer.util.loadMarkups(specimen.initial_markups_path)
+
+      markups_paths = specimen.get_markup_paths()
+      for p in markups_paths:
+        if not os.path.exists(p):
+          continue
+        
+        print(f"Overwriting {p} with {specimen.initial_markups_path}")
+        storageNode = default_markups_node.CreateDefaultStorageNode()
+        storageNode.SetFileName(p)
+        storageNode.WriteData(default_markups_node)
+        slicer.mrmlScene.RemoveNode(storageNode)
+      slicer.mrmlScene.RemoveNode(default_markups_node)
+
+
 
 class FishMorphometryLogic(ScriptedLoadableModuleLogic):
 
@@ -538,29 +594,11 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
       dict_list.append(row_dict)
     return dict_list
 
-
-  def confim_message_box(self,text):
-    c = ctk.ctkMessageBox()
-    c.setIcon(qt.QMessageBox.Information)
-    c.setText(text)
-    c.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
-    c.setDefaultButton(qt.QMessageBox.Ok)
-    answer = c.exec_()
-    return answer == qt.QMessageBox.Yes
-
-  def info_message_box(self,text):
-    c = ctk.ctkMessageBox()
-    c.setIcon(qt.QMessageBox.Information)
-    c.setText(text)
-    c.setStandardButtons(qt.QMessageBox.Ok)
-    c.setDefaultButton(qt.QMessageBox.Ok)
-    answer = c.exec_()
-
   def load_specimen(self, ID, volume_rendering = True):
     target_specimen = self.Specimens.get(ID)
 
     if isinstance(self.active_specimen,Specimen):
-      self.info_message_box("A specimen has been already loaded.")      
+      info_message_box("A specimen has been already loaded.")      
       return
 
     if isinstance(target_specimen,type(None)):
@@ -579,17 +617,17 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
       return
 
     if not isinstance(self.active_specimen,Specimen):
-      self.info_message_box("There is no active specimen to close.")
+      info_message_box("There is no active specimen to close.")
       return
 
-    if not self.confim_message_box("Do you really want to close the active specimen?"):
+    if not confim_message_box("Do you really want to close the active specimen?"):
       return
     self.active_specimen.close()
     self.active_specimen = None
 
   def save_active_specimen(self):
     if not isinstance(self.active_specimen,Specimen):
-      self.info_message_box("There is no active specimen to save.")
+      info_message_box("There is no active specimen to save.")
       return
 
     self.active_specimen.save()
@@ -632,7 +670,7 @@ class Specimen():
     self.preseg_paths = {}
     self.study_dir = study_dir
 
-    self.markups_node = None    
+    self.markups_nodes = []    
     
     self.volume_rendering_node = None    
     self.volume_rendering_roi = None    
@@ -720,7 +758,25 @@ class Specimen():
         for r in self.volume_rendering_roi:
             slicer.mrmlScene.RemoveNode(r)
         self.volume_rendering_roi = []
-    
+  
+
+  def intraobserver_markup_path(self,orig_markup_path, trial = 1):
+    if intraobserver_trials <= 1:
+      return orig_markup_path
+    filename = os.path.basename(orig_markup_path)
+    ext = ".mrk.json"
+    filename = filename.replace(ext,"")
+    trial_path = os.path.join(os.path.dirname(orig_markup_path),f"{filename}-trial_{str(trial).zfill(2)}{ext}")
+    return trial_path
+
+
+  def get_markup_paths(self):
+    paths = []
+    for t in range(max((1,intraobserver_trials))):
+      trial_path = self.intraobserver_markup_path(orig_markup_path=self.markups_path,trial=t+1)
+      paths.append(trial_path)
+    return paths
+  
 
   def load(self, volume_rendering = True):
     print(f"loading specimen {self.ID}")
@@ -732,18 +788,29 @@ class Specimen():
     bone_mask_node = slicer.util.loadVolume(self.bone_mask_path)
     self.node_dict[self.bone_mask_path] = bone_mask_node
 
+    for t in range(max((1,intraobserver_trials))):
+      trial_path = self.intraobserver_markup_path(orig_markup_path=self.markups_path,trial=t+1)
 
-    # load markups
-    if os.path.exists(self.markups_path):
-        markups_node = slicer.util.loadMarkups(self.markups_path)
-        self.node_dict[self.markups_path] = markups_node
-    else:
-        markups_node = slicer.util.loadMarkups(self.initial_markups_path)
-        self.node_dict[self.markups_path] = markups_node
-    self.markups_node =  self.node_dict[self.markups_path] 
-    self.markups_node.GetDisplayNode().SetColor(1,1,0)   
+      # load markups
+      if os.path.exists(trial_path):
+          markups_node = slicer.util.loadMarkups(trial_path)
+          self.node_dict[trial_path] = markups_node
+      else:
+          markups_node = slicer.util.loadMarkups(self.initial_markups_path)
+          if intraobserver_trials > 1:
+            filename = os.path.basename(self.initial_markups_path)
+            ext = ".mrk.json"
+            filename = filename.replace(ext,"")
 
-    self.writeable_node_paths.append(self.markups_path)
+            markups_node.SetName(f"{filename} - trial {t+1}")
+
+          self.node_dict[trial_path] = markups_node
+
+      self.node_dict[trial_path].GetDisplayNode().SetColor(1,1,0)
+
+      self.markups_nodes.append(self.node_dict[trial_path])
+
+      self.writeable_node_paths.append(trial_path)
     
     slicer.util.setSliceViewerLayers(background=ct_node)
     
@@ -813,20 +880,22 @@ def batch_exporter():
     
     slicer.modules.FishMorphometryWidget.onBtnInitializeStudy()
     for sid, specimen in slicer.modules.FishMorphometryWidget.logic.Specimens.items():
-        if not specimen.db_info["done"]=='1':
+        if not specimen.db_info["done"]==str(intraobserver_trials):
             continue
         #open specimen
         slicer.modules.FishMorphometryWidget.logic.load_specimen(sid,volume_rendering= False)
 
-        markups_node = specimen.node_dict[specimen.markups_path]
         if not os.path.isdir(specimen.final_save_dir):
           os.makedirs(specimen.final_save_dir,exist_ok=True)
 
-        markups_save_path = os.path.join(specimen.final_save_dir,f"{str(specimen.ID).upper()}_markups.mrk.json")
+        markups_paths = specimen.get_markup_paths()
+        for p in markups_paths:
+          markups_node = specimen.node_dict.get(p)
+          markups_save_path = os.path.join(specimen.final_save_dir,f"{str(specimen.ID).upper()}_{os.path.basename(p)}")
 
-        storageNode = markups_node.CreateDefaultStorageNode()
-        storageNode.SetFileName(markups_save_path)
-        storageNode.WriteData(markups_node)
+          storageNode = markups_node.CreateDefaultStorageNode()
+          storageNode.SetFileName(markups_save_path)
+          storageNode.WriteData(markups_node)
 
         slicer.mrmlScene.RemoveNode(storageNode)
 

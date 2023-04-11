@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME JackalCraniometry)
+set(MODULE_NAME FishMorphometry)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
