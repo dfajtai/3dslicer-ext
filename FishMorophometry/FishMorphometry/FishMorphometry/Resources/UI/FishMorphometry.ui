@@ -91,10 +91,10 @@
       <string>Markup definition</string>
      </property>
      <property name="checked">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="collapsed">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="collapsedHeight">
       <number>0</number>
@@ -158,7 +158,7 @@
       <item>
        <widget class="QPushButton" name="btnCreateTemplate">
         <property name="text">
-         <string>Create markup template</string>
+         <string>Create or update markup definitions</string>
         </property>
        </widget>
       </item>
