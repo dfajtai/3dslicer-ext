@@ -3,6 +3,9 @@ import os
 from pydoc import classname
 from re import S
 
+import copy
+import json
+
 import qt
 import vtk
 import ctk
@@ -22,8 +25,14 @@ rel_paths = True
 current_data_path = "/nas/medicopus_share/Projects/Fish/HAL-MATE"
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
-__preseg_csv_path__ = os.path.join(current_data_path,"etc","preproc_paths.csv")
-__study_dir__ =  os.path.join(current_data_path,"preprocessed")
+__pathdef_csv_path__ = os.path.join(current_data_path,"etc","pathdefs.csv")
+__markup_template_path__ = os.path.join(current_data_path,"etc","MARKUP_TEMPLATE.mrk.json") # this file contains a common strucutre of a slicer compatibel .mrk.json file
+
+__study_dir__ =  os.path.join(current_data_path,"markup_data_source")
+
+__markup_definition__ = os.path.join(current_data_path,"etc","fish_morphometry.mrk.json")
+__markup_list__ = os.path.join(current_data_path,"etc","markup_list.txt")
+markups_name = "Fish morphometry"
 
 
 def fix_path(path):
@@ -152,7 +161,10 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # (in the selected parameter node).
     
     self.ui.tbDBPath.textChanged.connect(self.updateParameterNodeFromGUI)
-    self.ui.tbPresegPath.textChanged.connect(self.updateParameterNodeFromGUI)
+    self.ui.tbPathdefPath.textChanged.connect(self.updateParameterNodeFromGUI)
+    self.ui.tbMarkupDefinitionPath.textChanged.connect(self.updateParameterNodeFromGUI)
+    self.ui.tbMarkupListPath.textChanged.connect(self.updateParameterNodeFromGUI)
+
 
     self.ui.tblSpecimens.selectionModel().selectionChanged.connect(self.selected_specimen_changed)
     self.ui.tblSpecimens.itemChanged.connect(self.specimen_tbl_changed)
@@ -163,10 +175,14 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.ui.btnInitializeStudy.connect('clicked(bool)',self.onBtnInitializeStudy)
     self.ui.btnSelectDB.connect('clicked(bool)',self.onBtnSelectDB)
-    self.ui.btnSelectPreseg.connect('clicked(bool)',self.onBtnSelectPreseg)
-
+    self.ui.btnSelectPathdef.connect('clicked(bool)',self.onBtnSelectPathdef)
     self.ui.btnBatchExport.connect('clicked(bool)',self.onBtnBatchExport)
+    
+    self.ui.btnSelectMarkupList.connect('clicked(bool)',self.onBtnSelectMarkupList)
+    self.ui.btnSelectMarkupDefinition.connect('clicked(bool)',self.onBtnSelectMarkupDefinition)
+    self.ui.btnCreateTemplate.connect('clicked(bool)',self.onBtnCreateTemplate)
     self.ui.btnPurgeMarkups.connect('clicked(bool)',self.onBtnPurgeMarkups)
+
 
     self.ui.btnLoadSelected.connect('clicked(bool)',self.onBtnLoadSelected)
     self.ui.btnSaveActiveSpecimen.connect('clicked(bool)',self.onBtnSaveActiveSpecimen)
@@ -272,7 +288,9 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Update node selectors and sliders
 
     self.ui.tbDBPath.text = fix_path(str(self._parameterNode.GetParameter("DatabaseCSVPath")))
-    self.ui.tbPresegPath.text = fix_path(str(self._parameterNode.GetParameter("PresegCSVPath")))
+    self.ui.tbPathdefPath.text = fix_path(str(self._parameterNode.GetParameter("PathdefCSVPath")))
+    self.ui.tbMarkupDefinitionPath.text = fix_path(str(self._parameterNode.GetParameter("DefinitionJSONPath")))
+    self.ui.tbMarkupListPath.text = fix_path(str(self._parameterNode.GetParameter("MarkupListTXTPath")))
 
 
     # All the GUI updates are done
@@ -290,7 +308,9 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
     self._parameterNode.SetParameter("DatabaseCSVPath",str(self.ui.tbDBPath.text))
-    self._parameterNode.SetParameter("PresegCSVPath",str(self.ui.tbPresegPath.text))
+    self._parameterNode.SetParameter("PathdefCSVPath",str(self.ui.tbPathdefPath.text))
+    self._parameterNode.SetParameter("DefinitionJSONPath",str(self.ui.tbMarkupDefinitionPath.text))
+    self._parameterNode.SetParameter("MarkupListTXTPath",str(self.ui.tbMarkupListPath.text))
   
     self._parameterNode.EndModify(wasModified)  
 
@@ -305,14 +325,32 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if fname:
       self._parameterNode.SetParameter("DatabaseCSVPath",fname)
   
-  def onBtnSelectPreseg(self):
-    _orig_file = str(self._parameterNode.GetParameter("PresegCSVPath"))
+  def onBtnSelectPathdef(self):
+    _orig_file = str(self._parameterNode.GetParameter("PathdefCSVPath"))
     _orig_dir = os.path.dirname(_orig_file)
     _orig_file_name = os.path.basename(_orig_file)
   
     fname = QFileDialog.getOpenFileName(None, 'Open file',  _orig_file_name , "CSV files (*.csv)")
     if fname:
-      self._parameterNode.SetParameter("PresegCSVPath",fname)
+      self._parameterNode.SetParameter("PathdefCSVPath",fname)
+
+  def onBtnSelectMarkupList(self):
+    _orig_file = str(self._parameterNode.GetParameter("MarkupListTXTPath"))
+    _orig_dir = os.path.dirname(_orig_file)
+    _orig_file_name = os.path.basename(_orig_file)
+  
+    fname = QFileDialog.getOpenFileName(None, 'Open file',  _orig_file_name , ".TXT files (*.txt)")
+    if fname:
+      self._parameterNode.SetParameter("MarkupListTXTPath",fname)
+
+  def onBtnSelectMarkupDefinition(self):
+    _orig_file = str(self._parameterNode.GetParameter("DefinitionJSONPath"))
+    _orig_dir = os.path.dirname(_orig_file)
+    _orig_file_name = os.path.basename(_orig_file)
+  
+    fname = QFileDialog.getOpenFileName(None, 'Open file',  _orig_file_name , ".MRK.JSON files (*.mrk.json)")
+    if fname:
+      self._parameterNode.SetParameter("DefinitionJSONPath",fname)
 
 
   def onBtnInitializeStudy(self):
@@ -494,14 +532,72 @@ class FishMorphometryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.mrmlScene.RemoveNode(storageNode)
       slicer.mrmlScene.RemoveNode(default_markups_node)
 
+  def onBtnCreateTemplate(self):
+    if not confim_message_box(f"You are goning to overwrite the '{self.logic._markup_definition_}' markup definition file. Do you want to proceed?"):
+      return
+
+    if not os.path.exists(self.logic._markup_list_):
+      info_message_box(f"Markup list file '{self.logic._markup_list_}' not exists.")
+      return
+    
+    if not os.path.exists(__markup_template_path__):
+      info_message_box(f"Markup template file '{__markup_template_path__}' not exists.")
+      return
+
+
+    markup_basic_definitions = {
+                                "id": "",
+                                "label": "",
+                                "description": "",
+                                "associatedNodeID": "",
+                                "position": "",
+                                "orientation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                                "selected": False,
+                                "locked": False,
+                                "visibility": True,
+                                "positionStatus": "undefined"
+                                }
+    
+
+    markup_template_dict = None
+
+
+    with open(__markup_template_path__,"r") as J:
+        markup_template_dict = json.load(J)
+
+    descs = []
+    with open(self.logic._markup_list_,"r") as txt:
+        descs = txt.readlines()
+
+    descs = [str(d).replace(os.linesep,"") for d in descs if d!=os.linesep]
+    print(descs)
+    
+    markups = []
+    for i in range(len(descs)):
+        m = copy.deepcopy(markup_basic_definitions)
+        m["id"] = str(i+1)
+        m["label"] = f"M-{i+1}"
+        m["description"] = str(descs[i]).replace("\n","")
+        markups.append(m)
+    markup_template_dict["markups"][0]["controlPoints"] = markups
+    markup_template_dict["markups"][0]["lastUsedControlPointNumber"] = len(markups)
+    markup_template_dict["markups"][0]["name"] = markups_name
+
+    with open(self.logic._markup_definition_, "w") as J:
+        json.dump(markup_template_dict,J, indent=4)
 
 
 class FishMorphometryLogic(ScriptedLoadableModuleLogic):
 
   _database_csv_path_ = fix_path(__database_csv_path__)
-  _preseg_csv_path_ =  fix_path(__preseg_csv_path__)
+  _pathdef_csv_path_ =  fix_path(__pathdef_csv_path__)
+  
+  _markup_definition_ = fix_path(__markup_definition__)
+  _markup_list_ = fix_path(__markup_list__)  
+
   _study_dir_ = fix_path(__study_dir__)
   _root_dir_ = fix_path(current_data_path)
+  
 
   def __init__(self):
     """
@@ -512,8 +608,8 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
     self.dbTable = None
     self.dbDictList = []
 
-    self.presegTable = None
-    self.presegDictList = []
+    self.pathdefTable = None
+    self.pathdefDictList = []
     
     self.ID_list = []
     self.Specimens = {}
@@ -528,8 +624,15 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
     if not parameterNode.GetParameter("DatabaseCSVPath"):
       parameterNode.SetParameter("DatabaseCSVPath",self._database_csv_path_)
     
-    if not parameterNode.GetParameter("PresegCSVPath"):
-      parameterNode.SetParameter("PresegCSVPath",self._preseg_csv_path_)
+    if not parameterNode.GetParameter("PathdefCSVPath"):
+      parameterNode.SetParameter("PathdefCSVPath",self._pathdef_csv_path_)
+
+    
+    if not parameterNode.GetParameter("DefinitionJSONPath"):
+      parameterNode.SetParameter("DefinitionJSONPath",self._markup_definition_)
+    
+    if not parameterNode.GetParameter("MarkupListTXTPath"):
+      parameterNode.SetParameter("MarkupListTXTPath",self._markup_list_)
 
     if not parameterNode.GetParameter("ShowControl"):
       parameterNode.SetParameter("ShowControl","true")
@@ -554,10 +657,10 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
 
   def initializeStudy(self):
     db_path = self.getParameterNode().GetParameter("DatabaseCSVPath")
-    preseg_path = self.getParameterNode().GetParameter("PresegCSVPath")
+    pathdef_path = self.getParameterNode().GetParameter("PathdefCSVPath")
 
     print(f"Database path {db_path}")
-    print(f"Presegmentation path {preseg_path}")
+    print(f"Pathdefmentation path {pathdef_path}")
 
     try:
       _node = slicer.util.getNode(self.get_node_if_loaded(db_path))
@@ -566,21 +669,26 @@ class FishMorphometryLogic(ScriptedLoadableModuleLogic):
       self.dbTable = slicer.util.loadTable(db_path)
 
     try:
-      _node = _node = slicer.util.getNode(self.get_node_if_loaded(preseg_path))
-      self.presegTable = _node
+      _node = _node = slicer.util.getNode(self.get_node_if_loaded(pathdef_path))
+      self.pathdefTable = _node
     except slicer.util.MRMLNodeNotFoundException:
-      self.presegTable = slicer.util.loadTable(preseg_path)    
+      self.pathdefTable = slicer.util.loadTable(pathdef_path)    
 
     self.dbDictList = self.init_table(self.dbTable)
-    self.presegDictList = self.init_table(self.presegTable)
+    self.pathdefDictList = self.init_table(self.pathdefTable)
 
     db_ID = [self.dbDictList[i].get("ID") for i in range(len(self.dbDictList))]
-    preseg_ID = [self.presegDictList[i].get("ID") for i in range(len(self.presegDictList))]
-    self.ID_list = sorted(list(set(db_ID).intersection(set(preseg_ID))))
+    pathdef_ID = [self.pathdefDictList[i].get("ID") for i in range(len(self.pathdefDictList))]
+    self.ID_list = sorted(list(set(db_ID).intersection(set(pathdef_ID))))
 
     print(self.ID_list)
     print(f"Initializing {len(self.ID_list)} specimens")
-    self.Specimens = dict([(s, Specimen(s,self.dbDictList, self.presegDictList, self._study_dir_)) for s in self.ID_list])
+
+    self.Specimens = dict([(s, Specimen(ID = s, 
+                                        dbDictList = self.dbDictList, 
+                                        pathdefDictList = self.pathdefDictList, 
+                                        study_dir = self._study_dir_, 
+                                        markup_template_path = self._markup_definition_)) for s in self.ID_list])
 
   
 
@@ -666,11 +774,12 @@ class FishMorphometryTest(ScriptedLoadableModuleTest):
 
 
 class Specimen():
-  def __init__(self, ID, dbDictList, presegDictList, study_dir):
+  def __init__(self, ID, dbDictList, pathdefDictList, study_dir, markup_template_path):
     self.ID = ID
     self.db_info = {}
-    self.preseg_paths = {}
+    self.path_defs = {}
     self.study_dir = study_dir
+    
 
     self.markups_nodes = []    
     
@@ -685,14 +794,15 @@ class Specimen():
     if len(db_row)>0:
       self.db_info = db_row[0]
 
-    preseg_row = list(filter(lambda x: x["ID"]==ID, presegDictList))
-    if len(preseg_row)>0:
-      self.preseg_paths = preseg_row[0]
+    pathdef_row = list(filter(lambda x: x["ID"]==ID, pathdefDictList))
+    if len(pathdef_row)>0:
+      self.path_defs = pathdef_row[0]
 
-    self.ct_path = fix_path(str(self.preseg_paths["CT"]).replace(2*os.sep,os.sep))
-    self.bone_mask_path = fix_path(str(self.preseg_paths["bone_mask"]).replace(2*os.sep,os.sep))
-    self.markups_path = fix_path(str(self.preseg_paths["markups"]).replace(2*os.sep,os.sep))
-    self.initial_markups_path = fix_path(str(self.preseg_paths["initial_markups"]).replace(2*os.sep,os.sep))
+    self.ct_path = fix_path(str(self.path_defs["CT"]).replace(2*os.sep,os.sep))
+    self.bone_mask_path = fix_path(str(self.path_defs["bone_mask"]).replace(2*os.sep,os.sep))
+    self.markups_path = fix_path(str(self.path_defs["markups"]).replace(2*os.sep,os.sep)) # this will be duckaped over by the intraobserver variability "extension".
+
+    self.markup_template_path = fix_path(str(markup_template_path).replace(2*os.sep,os.sep))
 
     self.row_index = 0
     for i in range(len(dbDictList)):
@@ -798,9 +908,9 @@ class Specimen():
           markups_node = slicer.util.loadMarkups(trial_path)
           self.node_dict[trial_path] = markups_node
       else:
-          markups_node = slicer.util.loadMarkups(self.initial_markups_path)
+          markups_node = slicer.util.loadMarkups(self.markup_template_path)
           if intraobserver_trials > 1:
-            filename = os.path.basename(self.initial_markups_path)
+            filename = os.path.basename(self.markup_template_path)
             ext = ".mrk.json"
             filename = filename.replace(ext,"")
 

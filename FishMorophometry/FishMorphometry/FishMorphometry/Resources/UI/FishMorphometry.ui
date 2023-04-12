@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>507</width>
-    <height>695</height>
+    <height>760</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -39,15 +39,15 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLineEdit" name="tbDBPath"/>
+         </item>
          <item row="0" column="1">
           <widget class="QPushButton" name="btnSelectDB">
            <property name="text">
             <string>Select .csv file</string>
            </property>
           </widget>
-         </item>
-         <item row="1" column="0" colspan="2">
-          <widget class="QLineEdit" name="tbDBPath"/>
          </item>
         </layout>
        </widget>
@@ -56,21 +56,21 @@
        <widget class="QWidget" name="widget_2" native="true">
         <layout class="QGridLayout" name="gridLayout_2">
          <item row="0" column="0">
-          <widget class="QLabel" name="lblPreseg">
+          <widget class="QLabel" name="lblPathdef">
            <property name="text">
-            <string>Presegmentation csv file</string>
+            <string>Path definition csv file</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="QPushButton" name="btnSelectPreseg">
+          <widget class="QPushButton" name="btnSelectPathdef">
            <property name="text">
             <string>Select .csv file</string>
            </property>
           </widget>
          </item>
          <item row="1" column="0" colspan="2">
-          <widget class="QLineEdit" name="tbPresegPath"/>
+          <widget class="QLineEdit" name="tbPathdefPath"/>
          </item>
         </layout>
        </widget>
@@ -79,6 +79,86 @@
        <widget class="QPushButton" name="btnBatchExport">
         <property name="text">
          <string>Batch Export</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="markupDefinitionsCollapsibleButton">
+     <property name="text">
+      <string>Markup definition</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <property name="collapsed">
+      <bool>true</bool>
+     </property>
+     <property name="collapsedHeight">
+      <number>0</number>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QWidget" name="widget_4" native="true">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_5">
+         <item row="0" column="1">
+          <widget class="QPushButton" name="btnSelectMarkupList">
+           <property name="text">
+            <string>Select data source</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Markup list path</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLineEdit" name="tbMarkupListPath"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="widget_5" native="true">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_6">
+         <item row="0" column="1">
+          <widget class="QPushButton" name="btnSelectMarkupDefinition">
+           <property name="text">
+            <string>Select data source</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>Markup definition path</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLineEdit" name="tbMarkupDefinitionPath"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnCreateTemplate">
+        <property name="text">
+         <string>Create markup template</string>
         </property>
        </widget>
       </item>
