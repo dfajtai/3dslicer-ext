@@ -16,7 +16,8 @@ from slicer.util import VTKObservationMixin
 
 rel_paths = True
 #stored_data_path = "/nas/medicopus_share/Projects/jackal"
-current_data_path = "/nas/medicopus_share/Projects/jackal"
+current_data_path = "/nas/medicopus_share/Projects/jackal/BATCH2/markup_data_source"
+#current_data_path = "/nas/medicopus_share/Projects/jackal"
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","preproc_paths.csv")
