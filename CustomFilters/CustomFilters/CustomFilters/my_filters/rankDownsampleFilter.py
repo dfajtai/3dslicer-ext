@@ -233,6 +233,7 @@ class RankDownsampleFilter(CustomFilter):
       raise ReferenceError("Inputs not initialized.")
     input_img_node_name = self.UI.inputs[0].GetName()
     img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
+    # img = sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name)
     
     # retrieve block size
     block_size = self.UI.parameters.get("block_size")
@@ -257,6 +258,7 @@ class RankDownsampleFilter(CustomFilter):
                                           block_size= block_size,
                                           func=selected_function,
                                           cval = np.min(image_data))
+    del(image_data)
     downsampled_spacing = (np.array(img.GetSpacing())*float(block_size)).flatten().tolist()
     downsampled_image = sitk.GetImageFromArray(downsampled_image_data)
     downsampled_image.SetOrigin(img.GetOrigin())

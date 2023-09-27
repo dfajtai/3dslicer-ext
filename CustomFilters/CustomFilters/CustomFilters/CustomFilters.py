@@ -437,6 +437,7 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
       #print "running..."
       self.logic.run(self.filter,self.filter_ui)
+      self.currentStatusLabel.text = "Done"
 
     except Exception as e:
       self.currentStatusLabel.text = "Exception"
