@@ -292,7 +292,7 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                              seg_id = self._parameterNode.GetParameter('seg_id'),
                              
                              fix_thr_val = float(self._parameterNode.GetParameter("fix_thr_val")),
-                             multi_otsu_val = int(self._parameterNode.GetParameter("multi_otsu_val")),
+                             multi_otsu_val = int(float(self._parameterNode.GetParameter("multi_otsu_val"))),
                              
                              fix_thr = self._parameterNode.GetParameter("fix_thr") == "true",
                              otsu = self._parameterNode.GetParameter("otsu") == "true",
@@ -467,7 +467,7 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         self.data["masked_sitk_img"].SetOrigin(self.data["sitk_img"].GetOrigin())
         self.data["masked_sitk_img"].SetSpacing(self.data["sitk_img"].GetSpacing())
         self.data["masked_sitk_img"].SetDirection(self.data["sitk_img"].GetDirection())
-
+        
 
         self.data["masked_img"] = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLScalarVolumeNode')
         self.data["masked_img"].SetName(f'Masked image')
@@ -505,6 +505,10 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "Otsu segmentation")
             out_segmentation.SetReferenceImageGeometryParameterFromVolumeNode(masked_img)
             out_segmentation.CreateDefaultDisplayNodes()
+            out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
+                                                                        f"Total")
+            
+            
 
         for i in range(2):
             otsu_img = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode')
@@ -540,6 +544,9 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", f"Multi Otsu [{num_of_segments}] segmentation")
             out_segmentation.SetReferenceImageGeometryParameterFromVolumeNode(masked_img)
             out_segmentation.CreateDefaultDisplayNodes()
+            
+            out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
+                                                                        f"Total")
 
         for i in range(num_of_segments):
             otsu_img = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode')
@@ -569,6 +576,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "Triangle segmentation")
             out_segmentation.SetReferenceImageGeometryParameterFromVolumeNode(masked_img)
             out_segmentation.CreateDefaultDisplayNodes()
+            out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
+                                                            f"Total")
         
         
         triangle_threshold_val = triangle_threshold(np.array(input_array[mask_array==1]).flatten())
@@ -594,6 +603,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "Fix thr segmentation")
             out_segmentation.SetReferenceImageGeometryParameterFromVolumeNode(masked_img)
             out_segmentation.CreateDefaultDisplayNodes()
+            out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
+                                                                        f"Total")
         
         
         _images = create_binary_images(masked_sitk_img, sitk_mask, fix_thr_val)
