@@ -95,19 +95,6 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="2">
-       <widget class="ctkSliderWidget" name="slider_fix_thr">
-        <property name="minimum">
-         <double>-1024.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>3072.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>90.000000000000000</double>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="1">
        <spacer name="horizontalSpacer">
         <property name="orientation">
@@ -121,16 +108,39 @@
         </property>
        </spacer>
       </item>
-      <item row="4" column="2">
-       <widget class="ctkSliderWidget" name="slider_multi_otsu">
-        <property name="toolTip">
-         <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="cb_fix_thr">
+        <property name="text">
+         <string>Fix threshold</string>
         </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="qMRMLSliderWidget" name="slider_fix_thr">
         <property name="decimals">
          <number>0</number>
         </property>
-        <property name="singleStep">
-         <double>1.000000000000000</double>
+        <property name="minimum">
+         <double>-1024.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>3072.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>90.000000000000000</double>
+        </property>
+        <property name="tracking">
+         <bool>false</bool>
+        </property>
+        <property name="quantity">
+         <string notr="true"/>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2">
+       <widget class="qMRMLSliderWidget" name="slider_multi_otsu">
+        <property name="decimals">
+         <number>0</number>
         </property>
         <property name="pageStep">
          <double>1.000000000000000</double>
@@ -144,12 +154,11 @@
         <property name="value">
          <double>3.000000000000000</double>
         </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="cb_fix_thr">
-        <property name="text">
-         <string>Fix threshold</string>
+        <property name="tracking">
+         <bool>false</bool>
+        </property>
+        <property name="quantity">
+         <string notr="true"/>
         </property>
        </widget>
       </item>
@@ -277,6 +286,11 @@
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLSliderWidget</class>
+   <extends>ctkSliderWidget</extends>
+   <header>qMRMLSliderWidget.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>

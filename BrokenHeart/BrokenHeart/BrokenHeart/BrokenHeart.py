@@ -107,6 +107,9 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.input_vol.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
         self.ui.input_seg.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
         
+        self.ui.slider_fix_thr.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
+        self.ui.slider_multi_otsu.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
+        
         self.ui.cb_fix_thr.connect("toggled(bool)", self.updateParameterNodeFromGUI)
         self.ui.cb_otsu.connect("toggled(bool)", self.updateParameterNodeFromGUI)
         self.ui.cb_triangle.connect("toggled(bool)", self.updateParameterNodeFromGUI)
@@ -240,7 +243,7 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.input_seg.setCurrentSegmentID(self._parameterNode.GetParameter("seg_id"))
 
         self.ui.slider_fix_thr.value = float(self._parameterNode.GetParameter("fix_thr_val"))
-        self.ui.slider_multi_otsu.value = int(self._parameterNode.GetParameter("multi_otsu_val"))
+        self.ui.slider_multi_otsu.value = int(float(self._parameterNode.GetParameter("multi_otsu_val")))
         
         self.ui.cb_fix_thr.checked = (self._parameterNode.GetParameter("fix_thr") == "true")
         self.ui.cb_otsu.checked = (self._parameterNode.GetParameter("otsu") == "true")
@@ -272,8 +275,8 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetNodeReferenceID("input_vol", self.ui.input_vol.currentNodeID)
         self._parameterNode.SetNodeReferenceID("input_seg", self.ui.input_seg.currentNodeID())
         self._parameterNode.SetParameter("seg_id", str(self.ui.input_seg.currentSegmentID()))
-        self._parameterNode.SetParameter("slider_fix_thr", str(self.ui.slider_fix_thr.value))
-        self._parameterNode.SetParameter("slider_multi_otsu", str(self.ui.slider_multi_otsu.value))
+        self._parameterNode.SetParameter("fix_thr_val", str(self.ui.slider_fix_thr.value))
+        self._parameterNode.SetParameter("multi_otsu_val", str(self.ui.slider_multi_otsu.value))
         
         self._parameterNode.SetParameter("fix_thr", "true" if self.ui.cb_fix_thr.checked else "false")
         self._parameterNode.SetParameter("otsu", "true" if self.ui.cb_otsu.checked else "false")
