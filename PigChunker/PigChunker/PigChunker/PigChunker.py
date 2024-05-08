@@ -13,17 +13,26 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
-stored_nas_path = "Z:/"
-current_nas_path = "/nas/medicopus_share/"
-# current_nas_path = stored_nas_path
 
-__database_csv_path__ = os.path.join(current_nas_path,"Projects","HARIBO","etc","database.csv")
-__preseg_csv_path__ = os.path.join(current_nas_path,"Projects","HARIBO","etc","img_paths.csv")
-__study_dir__ =  os.path.join(current_nas_path,"Projects","HARIBO","segmentation")
+rel_paths = True
+stored_data_path = "Z:/"
+current_data_path = "/nas/medicopus_share/Projects/ANIMALS/HARIBO/segmentation_2"
+# current_data_path = stored_nas_path
+
+__database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
+__preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
+__study_dir__ =  os.path.join(current_data_path,"segmentation")
 
 
 def fix_path(path):
-  return str(path).replace(stored_nas_path,current_nas_path)
+  if rel_paths:
+    return add_current_path(path)
+  else:
+    return str(path).replace(stored_data_path,current_data_path)
+
+def add_current_path(rel_path):
+    return os.path.join(str(__study_dir__), rel_path)
+
 
 #
 # PigChunker
@@ -640,6 +649,11 @@ class Specimen():
     self.mask_path = fix_path(str(self.preseg_paths["mask"]).replace(2*os.sep,os.sep))
     self.chunk_path = fix_path(str(self.preseg_paths["chunk"]).replace(2*os.sep,os.sep))
     self.body_path = fix_path(str(self.preseg_paths["body"]).replace(2*os.sep,os.sep))
+    
+    self.belly_path = fix_path(str(self.preseg_paths.get("belly")).replace(2*os.sep,os.sep))
+    self.shoulder_path = fix_path(str(self.preseg_paths.get("shoulder")).replace(2*os.sep,os.sep))
+    self.ham_path = fix_path(str(self.preseg_paths.get("ham")).replace(2*os.sep,os.sep))
+    self.loin_path = fix_path(str(self.preseg_paths.get("loin")).replace(2*os.sep,os.sep))
 
     self.row_index = 0
     for i in range(len(dbDictList)):
@@ -704,6 +718,21 @@ class Specimen():
         seg_node.GetDisplayNode().SetSegmentOpacity2DOutline(seg_id,1)
     
   
+  def load_or_init_segement(self, path, name, segmentation_node, default_mask_node):
+    print(f"Loading '{name}'")
+    try:
+      _mask_node = slicer.util.loadLabelVolume(path) #load mask
+      _m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(_mask_node)
+      segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(_m_img,name)
+      slicer.mrmlScene.RemoveNode(_mask_node)
+    except:
+      print(f"unable to open {path}")
+      label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+      slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, default_mask_node)
+      empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
+      slicer.mrmlScene.RemoveNode(label_dummy)
+      segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(empty,name)
+  
   def load(self,load_bg = True):
     print(f"loading specimen {self.ID} measurement {self.measurement}")
 
@@ -746,29 +775,14 @@ class Specimen():
       segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(m_img,"mask", [1,1,1,])
       
 
-      try:
-        body_mask_node = slicer.util.loadLabelVolume(self.body_path) #load body mask
-        body_m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(body_mask_node)
-        segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(body_m_img,"body", [1,0.9,0.3])
-        slicer.mrmlScene.RemoveNode(body_mask_node)
-      except:
-        print(f"unable to open {self.body_path}")
-        label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, mask_node)
-        empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
-        segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(empty,"body", [1,0.9,0.3])
+      self.load_or_init_segement(self.body_path, "body", segmentationNode, mask_node)
+      self.load_or_init_segement(self.chunk_path, "chunk", segmentationNode, mask_node)
+      
+      self.load_or_init_segement(self.belly_path, "belly", segmentationNode, mask_node)
+      self.load_or_init_segement(self.shoulder_path, "shoulder", segmentationNode, mask_node)
+      self.load_or_init_segement(self.ham_path, "ham", segmentationNode, mask_node)
+      self.load_or_init_segement(self.loin_path, "loin", segmentationNode, mask_node)
 
-      try:
-        chunk_mask_node = slicer.util.loadLabelVolume(self.chunk_path) #load chunk mask
-        chunk_m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(chunk_mask_node)
-        segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(chunk_m_img,"chunk", [.6,0.8,0.2])
-        slicer.mrmlScene.RemoveNode(chunk_mask_node)
-      except:
-        print(f"unable to open {self.chunk_path}")
-        label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, mask_node)
-        empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
-        segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(empty,"chunk", [.6,0.8,0.2])
 
     self.node_dict[self.segment_path] = segmentationNode
     self.writeable_node_paths.append(self.segment_path)
@@ -825,7 +839,7 @@ def batch_exporter():
         slicer.modules.PigChunkerWidget.logic.load_specimen(sid,measurement,load_bg = False)
 
         segmentation_node = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode").GetItemAsObject(0)
-        accepted = ["chunk","body"]
+        accepted = ["chunk","body","belly","shoulder","ham","loin"]
 
         volume = specimen.node_dict[specimen.mask_path]
         
