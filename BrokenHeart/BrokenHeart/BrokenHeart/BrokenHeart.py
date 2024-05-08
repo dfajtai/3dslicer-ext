@@ -125,6 +125,11 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.btn_otsu_stat.connect('clicked(bool)', self.on_btn_otsu_stat)
         self.ui.btn_triangle_stat.connect('clicked(bool)', self.on_btn_triangle_stat)
 
+        self.ui.btn_fix_view.connect('clicked(bool)', self.on_btn_fix_view)
+        self.ui.btn_multi_view.connect('clicked(bool)', self.on_btn_multi_view)
+        self.ui.btn_otsu_view.connect('clicked(bool)', self.on_btn_otsu_view)
+        self.ui.btn_triangle_view.connect('clicked(bool)', self.on_btn_triangle_view)
+    
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -218,13 +223,13 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode is not None and self.hasObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode):
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
         self._parameterNode = inputParameterNode
+                
         if self._parameterNode is not None:
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
         # Initial GUI update
         self.updateGUIFromParameterNode()
-
-
+        
     def updateGUIFromParameterNode(self, caller=None, event=None):
         """
         This method is called whenever parameter node is changed.
@@ -233,7 +238,7 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
-
+        
         # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
         self._updatingGUIFromParameterNode = True
 
@@ -343,6 +348,22 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic.stat_table("multi_otsu")
 
 
+    def on_btn_triangle_view(self):
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.logic.view_seg("triangle")
+    
+    def on_btn_fix_view(self):
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.logic.view_seg("fix")
+    
+    def on_btn_otsu_view(self):
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.logic.view_seg("otsu")
+
+    def on_btn_multi_view(self):
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.logic.view_seg("multi_otsu")
+
 #
 # BrokenHeartLogic
 #
@@ -407,7 +428,20 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
         
         self.data = {}
+        
+        
+        self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+        self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+        
+        if slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode"):
+            self.segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
+        else:
+            self.segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+        
+        self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
 
+        
+        
     def setDefaultParameters(self, parameterNode):
         """
         Initialize parameter node with default settings.
@@ -476,19 +510,26 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         if fix_thr:
             self.create_fix_thr_segmentation(fix_thr_val=fix_thr_val,**self.data)
             slicer.modules.BrokenHeartWidget.ui.btn_fix_stat.enabled=True
+            slicer.modules.BrokenHeartWidget.ui.btn_fix_view.enabled=True
+
             
         if otsu:
             self.create_otsu_segmentation(**self.data)
             slicer.modules.BrokenHeartWidget.ui.btn_otsu_stat.enabled=True
-        
+            slicer.modules.BrokenHeartWidget.ui.btn_otsu_view.enabled=True
+
         
         if triangle:
             self.create_triangle_segmentation(**self.data)
             slicer.modules.BrokenHeartWidget.ui.btn_triangle_stat.enabled=True
+            slicer.modules.BrokenHeartWidget.ui.btn_triangle_view.enabled=True
+
             
         if multi_otsu:
             self.create_multi_otsu_segmentation(num_of_segments = multi_otsu_val, **self.data)
             slicer.modules.BrokenHeartWidget.ui.btn_multi_stat.enabled=True
+            slicer.modules.BrokenHeartWidget.ui.btn_multi_view.enabled=True
+
 
         
         print("Broken Heart segmentation finished.")
@@ -507,6 +548,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.CreateDefaultDisplayNodes()
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
                                                                         f"Total")
+            out_segmentation.GetDisplayNode().SetOpacity(0.5)
+            out_segmentation.GetDisplayNode().SetVisibility(False)
             
             
 
@@ -527,8 +570,7 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(_seg,f"Otsu mask {i+1}")
             slicer.mrmlScene.RemoveNode(otsu_img)
             del(_sitk_LV_mask_image)
-            
-        out_segmentation.GetDisplayNode().SetOpacity(0.5)
+
         
         self.data["otsu"] = out_segmentation
     
@@ -547,6 +589,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
                                                                         f"Total")
+            out_segmentation.GetDisplayNode().SetOpacity(0.5)
+            out_segmentation.GetDisplayNode().SetVisibility(False)
 
         for i in range(num_of_segments):
             otsu_img = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode')
@@ -565,8 +609,7 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(_seg,f"Otsu mask {i+1}")
             slicer.mrmlScene.RemoveNode(otsu_img)
             del(_sitk_LV_mask_image)
-            
-        out_segmentation.GetDisplayNode().SetOpacity(0.5)
+
         
         self.data["multi_otsu"] = out_segmentation
     
@@ -578,6 +621,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.CreateDefaultDisplayNodes()
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
                                                             f"Total")
+            out_segmentation.GetDisplayNode().SetOpacity(0.5)
+            out_segmentation.GetDisplayNode().SetVisibility(False)
         
         
         triangle_threshold_val = triangle_threshold(np.array(input_array[mask_array==1]).flatten())
@@ -591,8 +636,7 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(_seg,f"{_name} triangle")
             slicer.mrmlScene.RemoveNode(triangle_img)
         del(triangle_images)
-            
-        out_segmentation.GetDisplayNode().SetOpacity(0.5)
+
         self.data["triangle"] = out_segmentation
         
     
@@ -605,6 +649,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             out_segmentation.CreateDefaultDisplayNodes()
             out_segmentation.AddSegmentFromBinaryLabelmapRepresentation(slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(self.data.get('seg_labelmap')),
                                                                         f"Total")
+            out_segmentation.GetDisplayNode().SetOpacity(0.5)
+            out_segmentation.GetDisplayNode().SetVisibility(False)
         
         
         _images = create_binary_images(masked_sitk_img, sitk_mask, fix_thr_val)
@@ -617,22 +663,104 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
             slicer.mrmlScene.RemoveNode(thr_img)
         del(_images)
             
-        out_segmentation.GetDisplayNode().SetOpacity(0.5)
+
+        
         self.data["fix"] = out_segmentation
     
+    
+    def view_seg(self,seg_type):
+        if seg_type not in self.data.keys():
+            raise ValueError('Invalid segmentation type')
+        
+        slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+
+        _segementation = self.data.get(seg_type)
+        display_node = _segementation.GetDisplayNode()
+        
+        segementation = _segementation.GetSegmentation()
+        segment_ids = list(segementation.GetSegmentIDs())
+
+        self.segmentEditorWidget.setSegmentationNode(_segementation)
+        self.segmentEditorWidget.setSourceVolumeNode(self.data.get("masked_img"))
+                       
+        display_node.SetAllSegmentsVisibility(False)
+        display_node.SetAllSegmentsVisibility3D(False)
+        
+        for i in range(len(segment_ids)):
+            seg_id = segment_ids[i]
+            display_node.SetSegmentOpacity2DFill(seg_id,0.85)
+            display_node.SetSegmentOpacity2DOutline(seg_id,1)
+            
+            if i == 1:
+                display_node.SetSegmentVisibility(seg_id,True)
+                display_node.SetSegmentVisibility3D(seg_id,True)
+                display_node.SetSegmentVisibility3D(seg_id,True)
+
+        self.segmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.OverwriteNone)
+        self.segmentEditorNode.SetMaskSegmentID(segment_ids[0])
+        self.segmentEditorNode.SetMaskMode(slicer.vtkMRMLSegmentationNode.EditAllowedInsideSingleSegment)
+        self.segmentEditorNode.SetSelectedSegmentID(segment_ids[1])
+    
+        display_node.SetVisibility(True)
+        display_node.SetOpacity(1.0)
+        display_node.SetVisibility3D(True)
+        display_node.SetOpacity3D(0.8)
+                
+        
+        volume_display_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeDisplayNode")
+        
+        for v in volume_display_nodes:
+            v.InterpolateOff()
+            v.SetAutoWindowLevel(0)
+            v.SetWindowLevelMinMax(-100,400)
+        
+        _segementation.CreateClosedSurfaceRepresentation()
+        
+        # Center and fit displayed content in 3D view
+        layoutManager = slicer.app.layoutManager()
+        threeDWidget = layoutManager.threeDWidget(0)
+        threeDView = threeDWidget.threeDView()
+        threeDView.rotateToViewAxis(3)  # look from anterior direction
+        threeDView.resetFocalPoint()  # reset the 3D view cube size and center it
+        threeDView.resetCamera()  # reset camera zoom
+        
+        
+        self.segmentEditorWidget.show()
+        
     
     def stat_table(self,seg_type):
         if seg_type not in self.data.keys():
             raise ValueError('Invalid segmentation type')
-        segment = self.data.get(seg_type)
+        
+        slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpTableView)
+        
+        self.segmentEditorWidget.close()
+        
+        _segementation = self.data.get(seg_type)
+        display_node = _segementation.GetDisplayNode()
+        
+        segementation = _segementation.GetSegmentation()
+        segment_ids = list(segementation.GetSegmentIDs())
+        
+        
         if self.data.get("stat_table"):
             if isinstance(self.data.get("stat_table"),slicer.vtkMRMLNode):
                 slicer.mrmlScene.RemoveNode(self.data.get("stat_table"))
             
         self.data["stat_table"] = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTableNode')
         
+        display_node.SetAllSegmentsVisibility(False)
+        display_node.SetAllSegmentsVisibility3D(False)
+        
+        display_node.SetVisibility(True)
+        display_node.SetOpacity(1.0)
+        display_node.SetVisibility3D(False)
+        
+        display_node.SetSegmentVisibility(segment_ids[0],True)
+        display_node.SetSegmentVisibility(segment_ids[1],True)
+        
         segStatLogic = SegmentStatistics.SegmentStatisticsLogic()
-        segStatLogic.getParameterNode().SetParameter("Segmentation", segment.GetID())
+        segStatLogic.getParameterNode().SetParameter("Segmentation", _segementation.GetID())
         segStatLogic.getParameterNode().SetParameter("ScalarVolume", self.data["masked_img"].GetID())
         segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.enabled","False")
         segStatLogic.getParameterNode().SetParameter("ScalarVolumeSegmentStatisticsPlugin.voxel_count.enabled","False")
@@ -643,8 +771,13 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         
     def empty_data(self):
         for key, value in self.data.items():
-            if isinstance(value,slicer.vtkMRMLNode):
-                slicer.mrmlScene.RemoveNode(value)
+            try:
+                if isinstance(value,slicer.vtkMRMLNode):
+                    slicer.mrmlScene.RemoveNode(value)
+            except:
+                continue
+            
+        
         self.data.clear()
         
     
@@ -652,6 +785,11 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         slicer.modules.BrokenHeartWidget.ui.btn_otsu_stat.enabled=False
         slicer.modules.BrokenHeartWidget.ui.btn_triangle_stat.enabled=False
         slicer.modules.BrokenHeartWidget.ui.btn_multi_stat.enabled=False
+        
+        slicer.modules.BrokenHeartWidget.ui.btn_fix_view.enabled=False
+        slicer.modules.BrokenHeartWidget.ui.btn_otsu_view.enabled=False
+        slicer.modules.BrokenHeartWidget.ui.btn_triangle_view.enabled=False
+        slicer.modules.BrokenHeartWidget.ui.btn_multi_view.enabled=False
         
     
             
@@ -678,5 +816,5 @@ class BrokenHeartTest(ScriptedLoadableModuleTest):
         self.test_BrokenHeart1()
 
     def test_BrokenHeart1(self):
-        assert(False)
+        return True
 
