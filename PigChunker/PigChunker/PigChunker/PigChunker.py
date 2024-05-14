@@ -23,7 +23,7 @@ __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
 __study_dir__ =  os.path.join(current_data_path,"segmentation")
 
-segment_names = 
+segment_names = ["chunk","body","belly", "venteral belly","shoulder","ham","loin"]
 
 
 def fix_path(path):
