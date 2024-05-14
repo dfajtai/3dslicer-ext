@@ -23,6 +23,8 @@ __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
 __study_dir__ =  os.path.join(current_data_path,"segmentation")
 
+segment_names = 
+
 
 def fix_path(path):
   if rel_paths:
@@ -645,16 +647,10 @@ class Specimen():
     if len(preseg_row)>0:
       self.preseg_paths = preseg_row[0]
 
-    self.bg_path = fix_path(str(self.preseg_paths["background"]).replace(2*os.sep,os.sep))
-    self.mask_path = fix_path(str(self.preseg_paths["mask"]).replace(2*os.sep,os.sep))
-    self.chunk_path = fix_path(str(self.preseg_paths["chunk"]).replace(2*os.sep,os.sep))
-    self.body_path = fix_path(str(self.preseg_paths["body"]).replace(2*os.sep,os.sep))
+    self.bg_path = self.get_img_path("background")
+    self.mask_path = self.get_img_path("mask")
     
-    self.belly_path = fix_path(str(self.preseg_paths.get("belly")).replace(2*os.sep,os.sep))
-    self.shoulder_path = fix_path(str(self.preseg_paths.get("shoulder")).replace(2*os.sep,os.sep))
-    self.ham_path = fix_path(str(self.preseg_paths.get("ham")).replace(2*os.sep,os.sep))
-    self.loin_path = fix_path(str(self.preseg_paths.get("loin")).replace(2*os.sep,os.sep))
-
+    
     self.row_index = 0
     for i in range(len(dbDictList)):
       if dbDictList[i]["ID"]==ID and dbDictList[i]["measurement"]==measurement:
@@ -674,7 +670,18 @@ class Specimen():
   @property
   def slicer_out_dir(self):
     return os.path.join(self.study_dir,self.ID,self.measurement)
-
+  
+  @property
+  def batch_export_dir(self):
+    return os.path.join(self.study_dir,'batch_export',self.ID,self.measurement)
+  
+  def get_img_path(self, img_name):
+    if not self.preseg_paths.get(img_name):
+      img_path =  os.path.join(self.slicer_out_dir,f"{self.ID}-{img_name}.nii.gz")
+    else:
+      img_path = self.preseg_paths.get(img_name)
+    return  fix_path(str(img_path).replace(2*os.sep,os.sep))
+    
   def update_done(self,table):
     try:
       self.db_info["done"] = table.GetCellText(self.row_index,self.done_col_index)
@@ -775,13 +782,8 @@ class Specimen():
       segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(m_img,"mask", [1,1,1,])
       
 
-      self.load_or_init_segement(self.body_path, "body", segmentationNode, mask_node)
-      self.load_or_init_segement(self.chunk_path, "chunk", segmentationNode, mask_node)
-      
-      self.load_or_init_segement(self.belly_path, "belly", segmentationNode, mask_node)
-      self.load_or_init_segement(self.shoulder_path, "shoulder", segmentationNode, mask_node)
-      self.load_or_init_segement(self.ham_path, "ham", segmentationNode, mask_node)
-      self.load_or_init_segement(self.loin_path, "loin", segmentationNode, mask_node)
+      for sn in segment_names:
+        self.load_or_init_segement(self.get_img_path(sn), sn, segmentationNode, mask_node)
 
 
     self.node_dict[self.segment_path] = segmentationNode
@@ -839,12 +841,11 @@ def batch_exporter():
         slicer.modules.PigChunkerWidget.logic.load_specimen(sid,measurement,load_bg = False)
 
         segmentation_node = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode").GetItemAsObject(0)
-        accepted = ["chunk","body","belly","shoulder","ham","loin"]
 
         volume = specimen.node_dict[specimen.mask_path]
         
 
-        for seg_name in accepted:
+        for seg_name in segment_names:
             print(f"exporting segement {seg_name}...")
             labelmap_node = slicer.vtkMRMLLabelMapVolumeNode()
             segment_ID = segmentation_node.GetSegmentation().GetSegmentIdBySegmentName(seg_name)
