@@ -7,12 +7,12 @@ import ctk
 import slicer
 
 
-global sitk
-sitk = None
+# global sitk
+# sitk = None
 import SimpleITK as sitk
 
-global sitkUtils
-sitkUtils = None
+# global sitkUtils
+# sitkUtils = None
 import sitkUtils
 
 
@@ -146,6 +146,7 @@ class CustomFilterUI:
     self.widgetConnections.append((w, "valueChanged(int)"))
     return w
 
+  
   def createLargeIntWidget(self,name):
     w = qt.QLineEdit()
     self.widgets.append(w)
@@ -209,6 +210,21 @@ class CustomFilterUI:
 
     parametersFormLayout = self.parent.layout()
     parametersFormLayout.addRow(l,widget)
+    
+  def addWidgetWithToolTip(self,widget, tip_label_dict):
+    tip=""
+    if "tip" in tip_label_dict and len(tip_label_dict["tip"]):
+      tip=tip_label_dict["tip"]
+
+    # remove trailing white space
+    tip=tip.rstrip()
+    
+    widget.setToolTip(tip)
+    parametersFormLayout = self.parent.layout()
+
+    parametersFormLayout.addRow(widget)
+    
+        
 
   def onToggledPointSelector(self, fidVisible, ptWidget, fiducialWidget):
     ptWidget.setVisible(False)
@@ -328,22 +344,24 @@ class CustomFilterUI:
       f()
 
   def destroy(self):
-
-    for widget, sig in self.widgetConnections:
-      widget.disconnect(sig)
-    self.widgetConnections = []
-
-    for w in self.widgets:
-      #self.parent.layout().removeWidget(w)
-      w.deleteLater()
-      w.setParent(None)
-    self.widgets = []
-    self.parameters = {}
-
+    try:
+      for widget, sig in self.widgetConnections:
+        widget.disconnect(sig)
+      self.widgetConnections = []
+      
+      for w in self.widgets:
+        self.parent.layout().removeWidget(w)
+        w.deleteLater()
+        w.setParent(None)    
+      
+      self.widgets = []
+      self.parameters = {}
+    except Exception as e:
+      print(e)
 
 class CustomFilter:
   """ 
-  This class ia a superclass for custom defined filters
+  This class is a superclass for custom defined filters
   """
 
   def __init__(self, filter_name = "", short_description = "", tooltip = ""):

@@ -429,16 +429,17 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         
         self.data = {}
         
-        
-        self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
-        self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
-        
+               
         if slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode"):
             self.segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
+            self.segmentEditorWidget = slicer.util.getModuleWidget('SegmentEditor')
         else:
             self.segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+            self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+            self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+            self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
         
-        self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
+        
 
         
         
@@ -725,7 +726,8 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         threeDView.resetCamera()  # reset camera zoom
         
         
-        self.segmentEditorWidget.show()
+        # self.segmentEditorWidget.show()
+        slicer.util.selectModule("SegmentEditor")
         
     
     def stat_table(self,seg_type):

@@ -71,13 +71,6 @@
       <string>Outputs</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="2" column="0">
-       <widget class="QCheckBox" name="cb_triangle">
-        <property name="text">
-         <string>Triangle</string>
-        </property>
-       </widget>
-      </item>
       <item row="4" column="0">
        <widget class="QCheckBox" name="cb_multi_otsu">
         <property name="text">
@@ -88,10 +81,10 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="cb_otsu">
+      <item row="2" column="0">
+       <widget class="QCheckBox" name="cb_triangle">
         <property name="text">
-         <string>Simple Otsu</string>
+         <string>Triangle</string>
         </property>
        </widget>
       </item>
@@ -108,10 +101,31 @@
         </property>
        </spacer>
       </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="cb_fix_thr">
-        <property name="text">
-         <string>Fix threshold</string>
+      <item row="4" column="2">
+       <widget class="qMRMLSliderWidget" name="slider_multi_otsu">
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="pageStep">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="minimum">
+         <double>2.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>5.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>3.000000000000000</double>
+        </property>
+        <property name="tickInterval">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="tracking">
+         <bool>false</bool>
+        </property>
+        <property name="quantity">
+         <string notr="true"/>
         </property>
        </widget>
       </item>
@@ -140,31 +154,17 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="2">
-       <widget class="qMRMLSliderWidget" name="slider_multi_otsu">
-        <property name="decimals">
-         <number>0</number>
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="cb_otsu">
+        <property name="text">
+         <string>Simple Otsu</string>
         </property>
-        <property name="pageStep">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>5.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>3.000000000000000</double>
-        </property>
-        <property name="tickInterval">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="tracking">
-         <bool>false</bool>
-        </property>
-        <property name="quantity">
-         <string notr="true"/>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="cb_fix_thr">
+        <property name="text">
+         <string>Fix threshold</string>
         </property>
        </widget>
       </item>

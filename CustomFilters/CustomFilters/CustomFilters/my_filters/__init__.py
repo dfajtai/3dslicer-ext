@@ -1,3 +1,3 @@
 from .rankDownsampleFilter import *
-
-implemented_filters = [RankDownsampleFilter]
+from .linearIntensityTransformFilter import *
+implemented_filters = [RankDownsampleFilter, LinearIntensityTransformFilter]

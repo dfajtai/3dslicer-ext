@@ -120,7 +120,7 @@ def view_as_blocks(arr_in, block_shape):
 
 class RankDownsampleFilter(CustomFilter):
   filter_name = "Rank Downsample Filter"
-  short_description = "Perform downsampling on input volume by a given numyp function - eg: mean, min, max, median, std."
+  short_description = "Perform downsampling on input volume by a given numpy function - eg: mean, min, max, median, std."
   tooltip = "Downsampling by local ranks."
 
   def __init__(self):
