@@ -10,39 +10,45 @@ from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
 
-def intensity_rescale_transform(image, clip, out_range, out_dtype, func_kwargs = None):
-  """
-  
-  """
 
-  if np.isscalar(block_size):
-    block_size = (block_size,) * image.ndim
-  elif len(block_size) != image.ndim:
-    raise ValueError("`block_size` must be a scalar or have "
-             "the same length as `image.shape`")
+dtype_labels=["int8_t",
+                "uint8_t",
+                "int16_t",
+                "uint16_t",
+                "uint32_t",
+                "int32_t",
+                "float",
+                "double"]
+dtype_values=[sitk.sitkInt8,
+            sitk.sitkUInt8,
+            sitk.sitkInt16,
+            sitk.sitkUInt16,
+            sitk.sitkInt32,
+            sitk.sitkUInt32,
+            sitk.sitkFloat32,
+            sitk.sitkFloat64]
 
-  if func_kwargs is None:
-    func_kwargs = {}
 
-  pad_width = []
-  for i in range(len(block_size)):
-    if block_size[i] < 1:
-      raise ValueError("Down-sampling factors must be >= 1. Use "
-               "`skimage.transform.resize` to up-sample an "
-               "image.")
-    if image.shape[i] % block_size[i] != 0:
-      after_width = block_size[i] - (image.shape[i] % block_size[i])
-    else:
-      after_width = 0
-    pad_width.append((0, after_width))
+def reverse_lookup_dtype(dytpe, return_index = False):
+  i = 0
+  for _label,_dtype in zip(dtype_labels,dtype_values):
+    if _dtype == dytpe:
+      if return_index:
+        return i
+      return _label
+    i+=1
+  return None
 
-  image = np.pad(image, pad_width=pad_width, mode='constant',
-           constant_values=cval)
 
-  blocked = view_as_blocks(image, block_size)
-
-  return func(blocked, axis=tuple(range(image.ndim, blocked.ndim)),
-        **func_kwargs)
+def lookup_dtype(label, return_index = False):
+  i = 0
+  for _label,_dtype in zip(dtype_labels,dtype_values):
+    if _label == label:
+      if return_index:
+        return i
+      return _dtype
+    i+=1
+  return None
 
 
 class LinearIntensityTransformFilter(CustomFilter):
@@ -66,12 +72,13 @@ class LinearIntensityTransformFilter(CustomFilter):
     self.above_val = None
     
     self.out_dtype = None
+  
+    self.sitk_img = None
     
 
   def createUI(self, parent):
-    self.parent = parent
     parametersFormLayout = super().createUI(parent)
-    UI = CustomFilterUI(parent = parent)
+    UI = CustomFilterUI(parent = parametersFormLayout)
 
     # set default values
     
@@ -83,26 +90,23 @@ class LinearIntensityTransformFilter(CustomFilter):
     UI.default_parameters["threshold"] =  [0, 100]
     
     UI.default_parameters["bellow_val"] =  0
-    UI.default_parameters["above_val"] = 100
+    UI.default_parameters["above_val"] = 0
     UI.default_parameters["invert"] = False
 
     
-    # input node
+    # # input node
     
-    name = "Input Volume: "
-    input_widget = UI.createInputWidget(0)
-    inputSelectorLabel = qt.QLabel(name)
-    UI.widgets.append(inputSelectorLabel)
-
-    # add to layout after connection
-    parametersFormLayout.addRow(inputSelectorLabel, input_widget)
+    input_widget = UI.createInputWidget()
+    UI.addWidgetWithToolTipAndLabel(input_widget,{"tip":"Pick the input  to the algorithm.","label":"Input volume"})
     UI.inputs.append(input_widget.currentNode())
 
-    analyze_image_button = qt.QPushButton("Analyze image")
-    # UI.widgets.append(analyze_image_button)
     
+    # button...
+    analyze_image_button = qt.QPushButton("Analyze image")
+    UI.widgets.append(analyze_image_button)
     UI.addWidgetWithToolTip(analyze_image_button,{"tip":"Analyze input image"})
     analyze_image_button.connect('clicked(bool)', self.analyze_image)
+    UI.widgetConnections.append((analyze_image_button, 'clicked(bool)'))
     
     
     # clip widget    
@@ -115,9 +119,9 @@ class LinearIntensityTransformFilter(CustomFilter):
     
     UI.clip_widget.connect("valuesChanged(double,double)",
                                 lambda min,max, widget=UI.clip_widget, name = 'clip': self.onRangeChanged(name,widget,min,max))
+    UI.widgetConnections.append((UI.clip_widget, 'valuesChanged(double,double)'))
     
-    
-    # threshold widget    
+    # # threshold widget    
     UI.threshold_widget = ctk.ctkRangeWidget()
     UI.widgets.append(UI.threshold_widget)
     UI.addWidgetWithToolTipAndLabel(UI.threshold_widget,{"tip":"Values outside the 'threshold range' will be set to the given values",
@@ -126,10 +130,10 @@ class LinearIntensityTransformFilter(CustomFilter):
     
     UI.threshold_widget.connect("valuesChanged(double,double)",
                                 lambda min,max, widget=UI.threshold_widget, name = 'threshold': self.onRangeChanged(name,widget,min,max))
+    UI.widgetConnections.append((UI.threshold_widget, 'valuesChanged(double,double)'))
     
     
-    
-    # bellow value
+    # # bellow value
     UI.bellow_value_widget = qt.QDoubleSpinBox()
     UI.widgets.append(UI.bellow_value_widget)
     UI.addWidgetWithToolTipAndLabel(UI.bellow_value_widget,{"tip":"Values bellow the 'threshold range' will be set to this value in the output image - if it is safe to...",
@@ -138,6 +142,8 @@ class LinearIntensityTransformFilter(CustomFilter):
     UI.bellow_value_widget.value =  UI.default_parameters["bellow_val"]
     UI.bellow_value_widget.connect("valueChanged(double)",
                                 lambda val, widget=UI.bellow_value_widget, name = 'bellow_val': self.onFloatValueChanged(name,widget,val))
+    UI.widgetConnections.append((UI.bellow_value_widget, 'valueChanged(double)'))
+    
     
     # above value
     UI.above_value_widget = qt.QDoubleSpinBox()
@@ -148,7 +154,7 @@ class LinearIntensityTransformFilter(CustomFilter):
     UI.above_value_widget.value =  UI.default_parameters["above_val"]
     UI.above_value_widget.connect("valueChanged(double)",
                                 lambda val, widget=UI.above_value_widget, name = 'above_val': self.onFloatValueChanged(name,widget,val))
-    
+    UI.widgetConnections.append((UI.above_value_widget, 'valueChanged(double)'))
     
     # out range widget
     UI.out_range_widget = ctk.ctkCoordinatesWidget()
@@ -160,30 +166,15 @@ class LinearIntensityTransformFilter(CustomFilter):
     UI.out_range_widget.connect("coordinatesChanged(double*)",
                                 lambda val, widget=UI.out_range_widget, name = 'out_range': self.onFloatVectorChanged(name,widget,val))
     UI.out_range_widget.coordinates = ','.join([str(np.round(val,2)) for val in UI.default_parameters["out_range"]])
-    
+    UI.widgetConnections.append((UI.out_range_widget, 'coordinatesChanged(double*)'))
     
     # out dtype
     
-    labels=["int8_t",
-                "uint8_t",
-                "int16_t",
-                "uint16_t",
-                "uint32_t",
-                "int32_t",
-                "float",
-                "double"]
-    values=["sitk.sitkInt8",
-                "sitk.sitkUInt8",
-                "sitk.sitkInt16",
-                "sitk.sitkUInt16",
-                "sitk.sitkInt32",
-                "sitk.sitkUInt32",
-                "sitk.sitkFloat32",
-                "sitk.sitkFloat64"]
-    
+
+
     UI.dtype_widget = qt.QComboBox()
     UI.widgets.append(UI.dtype_widget)
-    for l,v in zip(labels,values):
+    for l,v in zip(dtype_labels,dtype_values):
       UI.dtype_widget.addItem(l,v)
       if v == UI.default_parameters["out_dtype"]:
         UI.dtype_widget.setCurrentIndex(UI.dtype_widget.count-1)
@@ -194,8 +185,8 @@ class LinearIntensityTransformFilter(CustomFilter):
   
     UI.dtype_widget.connect("currentIndexChanged(int)", 
                             lambda selectorIndex,name="out_dtype",selector=UI.dtype_widget:self.onEnumChanged(name,selectorIndex,selector))
-
-  
+    UI.widgetConnections.append((UI.dtype_widget, 'currentIndexChanged(int)'))
+    
     #
     # output volume selector
     #
@@ -218,13 +209,26 @@ class LinearIntensityTransformFilter(CustomFilter):
 
     UI.outputSelector.connect("nodeActivated(vtkMRMLNode*)", lambda node:UI.onOutputSelect(node))
     UI.widgetConnections.append((UI.outputSelector, "nodeActivated(vtkMRMLNode*)"))
-
-
-    # add to layout after connection
-    parametersFormLayout.addRow(outputSelectorLabel, UI.outputSelector)
+    UI.addWidgetWithToolTipAndLabel(UI.outputSelector,{"tip":"Pick the output to the algorithm.","label":"Output volume"})
 
     UI.output = UI.outputSelector.currentNode()
+    
+    #
+    # LabelMap toggle
+    #
+    outputLabelMapLabel = qt.QLabel("LabelMap: ")
+    UI.widgets.append(outputLabelMapLabel)
 
+    UI.outputLabelMapBox = qt.QCheckBox()
+    UI.widgets.append(UI.outputLabelMapBox)
+    UI.outputLabelMapBox.setToolTip("Output Volume is set as a labelmap")
+    UI.outputLabelMapBox.setChecked(UI.outputLabelMap)
+    UI.outputLabelMapBox.setDisabled(True)
+
+    UI.outputLabelMapBox.connect("stateChanged(int)", lambda val:UI.onOutputLabelMapChanged(bool(val)))
+    UI.widgetConnections.append((UI.outputLabelMapBox, "stateChanged(int)"))
+    # add to layout after connection
+    parametersFormLayout.addRow(outputLabelMapLabel, UI.outputLabelMapBox)
 
     self.UI = UI
     return UI
@@ -238,7 +242,7 @@ class LinearIntensityTransformFilter(CustomFilter):
   def onFloatVectorChanged(self, name, widget, val):
     coords = [float(x) for x in widget.coordinates.split(',')]
     if name == "out_range":
-      self.out_range = coords
+      self.out_range = sorted(coords)
       if(self.UI):
         self.UI.bellow_value_widget.minimum = coords[0]
         self.UI.bellow_value_widget.maximum = coords[1]
@@ -318,51 +322,77 @@ class LinearIntensityTransformFilter(CustomFilter):
     self.UI.bellow_value_widget.enabled = True
     self.UI.above_value_widget.enabled = True
     
-    pass
+    # load image
+    if isinstance(self.UI.inputs[0],type(None)):
+      print("Please select an input volume.")
+      raise ReferenceError("Inputs not initialized.")
+    input_img_node_name = self.UI.inputs[0].GetName()
+    sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
+    
+    dtype_index = reverse_lookup_dtype(sitk_img.GetPixelID(),True)
+    if not isinstance(dtype_index,type(None)):
+      self.UI.dtype_widget.setCurrentIndex(dtype_index)
+      
+    
+    filter = sitk.MinimumMaximumImageFilter()
+    filter.Execute(sitk_img)
+    min_val = filter.GetMinimum()
+    max_val = filter.GetMaximum()
+
+    self.UI.clip_widget.minimum= min_val
+    self.UI.clip_widget.minimumValue = min_val
+    self.UI.clip_widget.maximum= max_val
+    self.UI.clip_widget.maximumValue = max_val
+
+    self.UI.threshold_widget.minimum= min_val
+    self.UI.threshold_widget.minimumValue = min_val
+    self.UI.threshold_widget.maximum= max_val
+    self.UI.threshold_widget.maximumValue = max_val
     
 
   def execute(self, ui = None):
     super().execute(ui = ui)
-
-    # handle UI
 
     # load image
     if isinstance(self.UI.inputs[0],type(None)):
       print("Please select an input volume.")
       raise ReferenceError("Inputs not initialized.")
     input_img_node_name = self.UI.inputs[0].GetName()
-    img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
+    sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
     # img = sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name)
     
-    # retrieve block size
-    block_size = self.UI.parameters.get("block_size")
-    if isinstance(block_size,type(None)):
-      print(f"Invalid block size: '{block_size}'")
-      raise ReferenceError("Invalid block size.")
-    block_size = int(block_size)
-
-    # retrieve downsampling function
-    selected_function_name = self.UI.parameters.get("downsampling_function")
-    func_dict = {"min":np.min,"max":np.max,"mean":np.mean,"std":np.std,"median":np.median}
-    selected_function = func_dict.get(selected_function_name)
-
-    if not callable(selected_function):
-      print(f"Invalid downsampling function: '{selected_function}'")
-      raise ReferenceError("Invalid downsampling function.")
+    img_data = sitk.GetArrayFromImage(sitk_img)
+        
+    # clipping
+    clipped_data = np.clip(img_data, a_min=self.clip[0],a_max=self.clip[1])
+    
+    # rescaling
+    data_min = np.min(clipped_data)
+    data_max = np.max(clipped_data)
+    data_range = data_max-data_min
+    out_range = self.out_range[1]-self.out_range[0]
+    rescaled_data = (((clipped_data-data_min)/data_range)*out_range)+self.out_range[0]
+    
+    # replacing
+    rescaled_data[img_data<self.threshold[0]] = self.bellow_val
+    rescaled_data[img_data>self.threshold[1]] = self.above_val
+    
 
     print("UI succesfully processed.")
 
-    image_data = sitk.GetArrayFromImage(img)
-    downsampled_image_data = block_reduce(image=image_data,
-                                          block_size= block_size,
-                                          func=selected_function,
-                                          cval = np.min(image_data))
-    del(image_data)
-    downsampled_spacing = (np.array(img.GetSpacing())*float(block_size)).flatten().tolist()
-    downsampled_image = sitk.GetImageFromArray(downsampled_image_data)
-    downsampled_image.SetOrigin(img.GetOrigin())
-    downsampled_image.SetDirection(img.GetDirection())
-    downsampled_image.SetSpacing(downsampled_spacing)
+    del(img_data)
+    rescaled_image = sitk.GetImageFromArray(rescaled_data)
+    rescaled_image.SetOrigin(sitk_img.GetOrigin())
+    rescaled_image.SetDirection(sitk_img.GetDirection())
+    rescaled_image.SetSpacing(sitk_img.GetSpacing())
     
-    print("Downsampling done.")
-    return downsampled_image
+    cast_filter = sitk.CastImageFilter()
+    cast_filter.SetOutputPixelType(self.out_dtype)
+    out_sitk_image = cast_filter.Execute(rescaled_image)
+    
+    
+    del(rescaled_data)
+    del(rescaled_image)
+    
+    print("Linear intensity transform done.")
+    return out_sitk_image

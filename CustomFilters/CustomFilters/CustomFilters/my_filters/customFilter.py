@@ -49,7 +49,7 @@ class CustomFilterUI:
   def BeautifyCamelCase(self, str):
     return self.reCamelCase.sub(r' \1',str)
   
-  def createInputWidget(self,n, noneEnabled=False):
+  def createInputWidget(self,n = 0, noneEnabled=False):
     inputSelector = slicer.qMRMLNodeComboBox()
     self.widgets.append(inputSelector)
     inputSelector.nodeTypes = ["vtkMRMLScalarVolumeNode", "vtkMRMLLabelMapVolumeNode"]
@@ -221,7 +221,6 @@ class CustomFilterUI:
     
     widget.setToolTip(tip)
     parametersFormLayout = self.parent.layout()
-
     parametersFormLayout.addRow(widget)
     
         
@@ -344,18 +343,23 @@ class CustomFilterUI:
       f()
 
   def destroy(self):
-    try:
+    try:     
       for widget, sig in self.widgetConnections:
         widget.disconnect(sig)
       self.widgetConnections = []
-      
-      for w in self.widgets:
+            
+      for w in self.widgets:        
         self.parent.layout().removeWidget(w)
         w.deleteLater()
         w.setParent(None)    
       
       self.widgets = []
       self.parameters = {}
+      
+      self.inputs = []
+      self.output = None
+      
+      
     except Exception as e:
       print(e)
 

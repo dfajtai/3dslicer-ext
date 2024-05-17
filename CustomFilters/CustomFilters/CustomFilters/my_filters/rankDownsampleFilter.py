@@ -130,9 +130,8 @@ class RankDownsampleFilter(CustomFilter):
     self.tooltip = RankDownsampleFilter.tooltip
 
   def createUI(self, parent):
-    self.parent = parent
     parametersFormLayout = super().createUI(parent)
-    UI = CustomFilterUI(parent = parent)
+    UI = CustomFilterUI(parent = parametersFormLayout)
 
     # set default values
     UI.default_parameters["block_size"] = 2

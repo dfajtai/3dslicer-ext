@@ -198,6 +198,7 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.filter = my_filters.CustomFilter()
     self.filter_ui = my_filters.CustomFilterUI(self.filter_ui_parent)
+    # self.filter_ui = my_filters.CustomFilterUI(parametersFormLayout) 
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -213,7 +214,7 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     hlayout.addWidget(self.currentStatusLabel)
     self.layout.addLayout(hlayout)
 
-    self.filterStartTime = None
+    # self.filterStartTime = None
 
     # self.progress = qt.QProgressBar()
     # self.progress.setRange(0,1000)
@@ -228,9 +229,9 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.restoreDefaultsButton.toolTip = "Restore the default parameters."
     self.restoreDefaultsButton.enabled = True
 
-    self.cancelButton = qt.QPushButton("Cancel")
-    self.cancelButton.toolTip = "Abort the algorithm."
-    self.cancelButton.enabled = False
+    # self.cancelButton = qt.QPushButton("Cancel")
+    # self.cancelButton.toolTip = "Abort the algorithm."
+    # self.cancelButton.enabled = False
 
     self.applyButton = qt.QPushButton("Apply")
     self.applyButton.toolTip = "Run the algorithm."
@@ -240,14 +241,14 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     hlayout.addWidget(self.restoreDefaultsButton)
     hlayout.addStretch(1)
-    hlayout.addWidget(self.cancelButton)
+    # hlayout.addWidget(self.cancelButton)
     hlayout.addWidget(self.applyButton)
     self.layout.addLayout(hlayout)
 
     # connections
     self.restoreDefaultsButton.connect('clicked(bool)', self.onRestoreDefaultsButton)
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.cancelButton.connect('clicked(bool)', self.onCancelButton)
+    # self.cancelButton.connect('clicked(bool)', self.onCancelButton)
 
     # Initlial Selection
     self.filterSelector.currentIndexChanged(self.filterSelector.currentIndex)
@@ -447,10 +448,10 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                   e)
 
 
-  def onCancelButton(self):
-    self.currentStatusLabel.text = "Aborting"
-    if self.logic:
-      self.logic.abort = True
+  # def onCancelButton(self):
+  #   self.currentStatusLabel.text = "Aborting"
+  #   if self.logic:
+  #     self.logic.abort = True
 
 
   # def onLogicEventStart(self):
