@@ -290,6 +290,9 @@ class BrokenHeartWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
 
         self._parameterNode.EndModify(wasModified)
+        
+        self.logic.init_editor()
+        
     
     def get_all_param(self):
         params = OrderedDict(input_vol = self._parameterNode.GetNodeReference('input_vol'),
@@ -429,19 +432,15 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         
         self.data = {}
         
-               
+        self.segmentEditorNode = None
+        self.segmentEditorWidget = None
+        
+        
+    def init_editor(self):
         if slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode"):
             self.segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
-            self.segmentEditorWidget = slicer.util.getModuleWidget('SegmentEditor')
-        else:
-            self.segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
-            self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
-            self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
-            self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
-        
-        
-
-        
+            self.segmentEditorWidget = slicer.util.getModuleWidget('SegmentEditor').editor
+                        
         
     def setDefaultParameters(self, parameterNode):
         """
@@ -673,6 +672,10 @@ class BrokenHeartLogic(ScriptedLoadableModuleLogic):
         if seg_type not in self.data.keys():
             raise ValueError('Invalid segmentation type')
         
+        if not self.segmentEditorNode or not self.segmentEditorWidget:
+            slicer.util.selectModule("SegmentEditor")
+            self.init_editor()
+                    
         slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
 
         _segementation = self.data.get(seg_type)
