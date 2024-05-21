@@ -10,45 +10,47 @@ from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
 
+# dtype handling
 
-dtype_labels=["int8_t",
-                "uint8_t",
-                "int16_t",
-                "uint16_t",
-                "uint32_t",
-                "int32_t",
-                "float",
-                "double"]
-dtype_values=[sitk.sitkInt8,
-            sitk.sitkUInt8,
-            sitk.sitkInt16,
-            sitk.sitkUInt16,
-            sitk.sitkInt32,
-            sitk.sitkUInt32,
-            sitk.sitkFloat32,
-            sitk.sitkFloat64]
+dtype_labels=[
+  "uint8_t",
+  "int8_t",
+  "int16_t",
+  "uint16_t",
+  "int32_t",
+  "uint32_t",
+  "float",
+  "double"]
 
+dtype_values=[
+  sitk.sitkUInt8,
+  sitk.sitkInt8,
+  sitk.sitkInt16,
+  sitk.sitkUInt16,
+  sitk.sitkInt32,
+  sitk.sitkUInt32,
+  sitk.sitkFloat32,
+  sitk.sitkFloat64]
+
+dtype_label_dict = dict(zip(dtype_labels,dtype_values))
+dtype_label_reverse_dict = dict(zip(dtype_values,dtype_labels))
 
 def reverse_lookup_dtype(dytpe, return_index = False):
-  i = 0
-  for _label,_dtype in zip(dtype_labels,dtype_values):
-    if _dtype == dytpe:
-      if return_index:
-        return i
-      return _label
-    i+=1
-  return None
+  if return_index:
+    if dytpe in dtype_values:
+      return dtype_values.index(dytpe)
+    return None
+  else:
+    return dtype_label_reverse_dict.get(dytpe)
 
 
 def lookup_dtype(label, return_index = False):
-  i = 0
-  for _label,_dtype in zip(dtype_labels,dtype_values):
-    if _label == label:
-      if return_index:
-        return i
-      return _dtype
-    i+=1
-  return None
+  if return_index:
+    if label in dtype_labels:
+      return dtype_labels.index(label)
+    return None
+  else:
+    return dtype_label_dict.get(label)
 
 
 class LinearIntensityTransformFilter(CustomFilter):
@@ -83,7 +85,6 @@ class LinearIntensityTransformFilter(CustomFilter):
     # set default values
     
     UI.default_parameters["out_range"] = [0, 255]
-    UI.default_parameters["out_dtype"] = "sitk.sitkUInt8"
     
     UI.default_parameters["clip"] =  [0, 100]
     
@@ -168,17 +169,14 @@ class LinearIntensityTransformFilter(CustomFilter):
     UI.out_range_widget.coordinates = ','.join([str(np.round(val,2)) for val in UI.default_parameters["out_range"]])
     UI.widgetConnections.append((UI.out_range_widget, 'coordinatesChanged(double*)'))
     
-    # out dtype
-    
+    # out dtype    
 
 
     UI.dtype_widget = qt.QComboBox()
     UI.widgets.append(UI.dtype_widget)
     for l,v in zip(dtype_labels,dtype_values):
       UI.dtype_widget.addItem(l,v)
-      if v == UI.default_parameters["out_dtype"]:
-        UI.dtype_widget.setCurrentIndex(UI.dtype_widget.count-1)
-        self.onEnumChanged("out_dtype",UI.dtype_widget.count-1,UI.dtype_widget)
+      # print((l,v))
           
     UI.addWidgetWithToolTipAndLabel(UI.dtype_widget,{"tip":"Output image data type",
                   "label":"Out data type"})
@@ -262,7 +260,7 @@ class LinearIntensityTransformFilter(CustomFilter):
     text = widget.itemText(index)
     if name == "out_dtype":
       self.out_dtype = data
-      
+      print(self.out_dtype)
       if "int" in text:  
         if text=="uint8_t":
           self.ui_set_dtype(True,0,255)
@@ -314,7 +312,17 @@ class LinearIntensityTransformFilter(CustomFilter):
         
       
   
-  def analyze_image(self):
+  def analyze_image(self):    
+    # load image
+    if isinstance(self.UI.inputs[0],type(None)):
+      print("Please select an input volume.")
+      self.UI.out_range_widget.enabled = False
+      self.UI.clip_widget.enabled = False
+      self.UI.threshold_widget.enabled  = False
+      self.UI.bellow_value_widget.enabled = False
+      self.UI.above_value_widget.enabled = False
+        
+      raise ReferenceError("Inputs not initialized.")
     
     self.UI.out_range_widget.enabled = True
     self.UI.clip_widget.enabled = True
@@ -322,12 +330,15 @@ class LinearIntensityTransformFilter(CustomFilter):
     self.UI.bellow_value_widget.enabled = True
     self.UI.above_value_widget.enabled = True
     
-    # load image
-    if isinstance(self.UI.inputs[0],type(None)):
-      print("Please select an input volume.")
-      raise ReferenceError("Inputs not initialized.")
+    
     input_img_node_name = self.UI.inputs[0].GetName()
     sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
+    
+    # print(reverse_lookup_dtype(sitk_img.GetPixelID()))
+    # print(sitk_img.GetPixelID())
+    # print(sitk_img.GetPixelIDValue())
+    # print(sitk_img.GetPixelIDTypeAsString())
+    
     
     dtype_index = reverse_lookup_dtype(sitk_img.GetPixelID(),True)
     if not isinstance(dtype_index,type(None)):
@@ -349,6 +360,7 @@ class LinearIntensityTransformFilter(CustomFilter):
     self.UI.threshold_widget.maximum= max_val
     self.UI.threshold_widget.maximumValue = max_val
     
+    self.UI.out_range_widget.coordinates = ','.join([str(np.round(val,2)) for val in [min_val,max_val]])
 
   def execute(self, ui = None):
     super().execute(ui = ui)
@@ -386,10 +398,9 @@ class LinearIntensityTransformFilter(CustomFilter):
     rescaled_image.SetDirection(sitk_img.GetDirection())
     rescaled_image.SetSpacing(sitk_img.GetSpacing())
     
-    cast_filter = sitk.CastImageFilter()
-    cast_filter.SetOutputPixelType(self.out_dtype)
-    out_sitk_image = cast_filter.Execute(rescaled_image)
-    
+
+    out_sitk_image = sitk.Cast(rescaled_image,self.out_dtype)
+
     
     del(rescaled_data)
     del(rescaled_image)
