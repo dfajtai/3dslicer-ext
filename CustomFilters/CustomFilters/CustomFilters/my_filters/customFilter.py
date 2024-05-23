@@ -359,9 +359,15 @@ class CustomFilterUI:
       self.inputs = []
       self.output = None
       
+      # flush_data = getattr(self, "flush_data", None)
+      # if callable(flush_data):
+      #   self.flush_data()
+        
       
     except Exception as e:
       print(e)
+      
+      
 
 class CustomFilter:
   """ 

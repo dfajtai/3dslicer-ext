@@ -273,7 +273,7 @@ class DoGFilter(CustomFilter):
       self.current_image = None
     
     self.update_gui()
-  
+     
   
   def select_changed(self,item, list_type):
     if list_type == "smooth":
