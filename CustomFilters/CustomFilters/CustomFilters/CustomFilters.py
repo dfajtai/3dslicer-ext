@@ -114,8 +114,6 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-
-
   def __init__(self, parent=None):
     """
     Called when the user opens the module the first time and the widget is initialized.
@@ -206,11 +204,11 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # Status and Progress
     #
-    statusLabel = qt.QLabel("Status: ")
+    self.statusLabel = qt.QLabel("Status: ")
     self.currentStatusLabel = qt.QLabel("Idle")
     hlayout = qt.QHBoxLayout()
     hlayout.addStretch(1)
-    hlayout.addWidget(statusLabel)
+    hlayout.addWidget(self.statusLabel)
     hlayout.addWidget(self.currentStatusLabel)
     self.layout.addLayout(hlayout)
 
@@ -447,6 +445,12 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                   f"Exception before execution of {self.filter.filter_name}",
                   e)
 
+  def setFooterVisibility(self,visibility = True):
+    self.applyButton.visible = visibility
+    self.restoreDefaultsButton.visible = visibility
+    self.currentStatusLabel.visible = visibility
+    self.statusLabel.visible = visibility
+  
 
   # def onCancelButton(self):
   #   self.currentStatusLabel.text = "Aborting"

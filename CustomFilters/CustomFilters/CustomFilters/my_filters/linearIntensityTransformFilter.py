@@ -10,47 +10,9 @@ from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
 
-# dtype handling
+from .myPlotter import addOrUpdateHistogram
 
-dtype_labels=[
-  "uint8_t",
-  "int8_t",
-  "int16_t",
-  "uint16_t",
-  "int32_t",
-  "uint32_t",
-  "float",
-  "double"]
-
-dtype_values=[
-  sitk.sitkUInt8,
-  sitk.sitkInt8,
-  sitk.sitkInt16,
-  sitk.sitkUInt16,
-  sitk.sitkInt32,
-  sitk.sitkUInt32,
-  sitk.sitkFloat32,
-  sitk.sitkFloat64]
-
-dtype_label_dict = dict(zip(dtype_labels,dtype_values))
-dtype_label_reverse_dict = dict(zip(dtype_values,dtype_labels))
-
-def reverse_lookup_dtype(dytpe, return_index = False):
-  if return_index:
-    if dytpe in dtype_values:
-      return dtype_values.index(dytpe)
-    return None
-  else:
-    return dtype_label_reverse_dict.get(dytpe)
-
-
-def lookup_dtype(label, return_index = False):
-  if return_index:
-    if label in dtype_labels:
-      return dtype_labels.index(label)
-    return None
-  else:
-    return dtype_label_dict.get(label)
+from .dtype_handling import *
 
 
 class LinearIntensityTransformFilter(CustomFilter):
@@ -81,6 +43,8 @@ class LinearIntensityTransformFilter(CustomFilter):
   def createUI(self, parent):
     parametersFormLayout = super().createUI(parent)
     UI = CustomFilterUI(parent = parametersFormLayout)
+    
+    slicer.modules.CustomFiltersWidget.setFooterVisibility(True)
 
     # set default values
     
@@ -109,6 +73,12 @@ class LinearIntensityTransformFilter(CustomFilter):
     analyze_image_button.connect('clicked(bool)', self.analyze_image)
     UI.widgetConnections.append((analyze_image_button, 'clicked(bool)'))
     
+    # plot container ...
+    UI.plot_container = slicer.qMRMLPlotWidget()
+    UI.plot_container.visible = False
+    UI.plot_container.minimumHeight = 200   
+    UI.widgets.append(UI.plot_container)
+    parametersFormLayout.addRow(UI.plot_container)
     
     # clip widget    
     UI.clip_widget = ctk.ctkRangeWidget()
@@ -260,7 +230,7 @@ class LinearIntensityTransformFilter(CustomFilter):
     text = widget.itemText(index)
     if name == "out_dtype":
       self.out_dtype = data
-      print(self.out_dtype)
+
       if "int" in text:  
         if text=="uint8_t":
           self.ui_set_dtype(True,0,255)
@@ -323,7 +293,7 @@ class LinearIntensityTransformFilter(CustomFilter):
       self.UI.above_value_widget.enabled = False
         
       raise ReferenceError("Inputs not initialized.")
-    
+  
     self.UI.out_range_widget.enabled = True
     self.UI.clip_widget.enabled = True
     self.UI.threshold_widget.enabled  = True
@@ -332,6 +302,10 @@ class LinearIntensityTransformFilter(CustomFilter):
     
     
     input_img_node_name = self.UI.inputs[0].GetName()
+    
+    addOrUpdateHistogram(self, self.UI,self.UI.plot_container,input_image = self.UI.inputs[0])
+    self.UI.plot_container.visible = True    
+    
     sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
     
     # print(reverse_lookup_dtype(sitk_img.GetPixelID()))

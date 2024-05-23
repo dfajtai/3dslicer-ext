@@ -9,7 +9,7 @@ import slicer
 from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
-
+from .myPlotter import addOrUpdateHistogram
 
 
 class AutocropFilter(CustomFilter):
@@ -21,9 +21,7 @@ class AutocropFilter(CustomFilter):
     super().__init__()
     self.filter_name = AutocropFilter.filter_name
     self.short_description = AutocropFilter.short_description
-    self.tooltip = AutocropFilter.tooltip
-    self.input_image_range = [None,None]
-    
+    self.tooltip = AutocropFilter.tooltip  
 
     self.border = [0,0,0]
     
@@ -36,6 +34,8 @@ class AutocropFilter(CustomFilter):
   def createUI(self, parent):
     parametersFormLayout = super().createUI(parent)
     UI = CustomFilterUI(parent = parametersFormLayout)
+
+    slicer.modules.CustomFiltersWidget.setFooterVisibility(True)
 
     # set default values
     
@@ -59,7 +59,14 @@ class AutocropFilter(CustomFilter):
     UI.addWidgetWithToolTip(analyze_image_button,{"tip":"Analyze input image"})
     analyze_image_button.connect('clicked(bool)', self.analyze_image)
     UI.widgetConnections.append((analyze_image_button, 'clicked(bool)'))
-        
+    
+    # plot container ...
+    UI.plot_container = slicer.qMRMLPlotWidget()
+    UI.plot_container.visible = False
+    UI.plot_container.minimumHeight = 200   
+    UI.widgets.append(UI.plot_container)
+    parametersFormLayout.addRow(UI.plot_container)
+    
     # # threshold widget    
     UI.threshold_widget = ctk.ctkRangeWidget()
     UI.widgets.append(UI.threshold_widget)
@@ -164,6 +171,10 @@ class AutocropFilter(CustomFilter):
       print("Please select an input volume.")
       raise ReferenceError("Inputs not initialized.")
     input_img_node_name = self.UI.inputs[0].GetName()
+    
+    addOrUpdateHistogram(self, self.UI,self.UI.plot_container,input_image = self.UI.inputs[0])
+    self.UI.plot_container.visible = True
+     
     sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
         
     filter = sitk.MinimumMaximumImageFilter()

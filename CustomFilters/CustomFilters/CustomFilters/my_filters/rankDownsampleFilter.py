@@ -132,6 +132,8 @@ class RankDownsampleFilter(CustomFilter):
   def createUI(self, parent):
     parametersFormLayout = super().createUI(parent)
     UI = CustomFilterUI(parent = parametersFormLayout)
+    
+    slicer.modules.CustomFiltersWidget.setFooterVisibility(True)
 
     # set default values
     UI.default_parameters["block_size"] = 2
