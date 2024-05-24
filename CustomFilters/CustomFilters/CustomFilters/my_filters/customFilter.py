@@ -343,6 +343,7 @@ class CustomFilterUI:
       f()
 
   def destroy(self):
+    # print("Filter UI destory called")
     try:     
       for widget, sig in self.widgetConnections:
         widget.disconnect(sig)
@@ -409,3 +410,7 @@ class CustomFilter:
     
     parametersFormLayout = self.parent.layout()
     return parametersFormLayout
+  
+  def destroy(self):
+    # print("Filter destory called")
+    pass

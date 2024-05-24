@@ -407,6 +407,9 @@ class CustomFiltersWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.filterSelector.addItem(j.filter_name,idx)
 
   def onFilterSelect(self, selectorIndex):
+    
+    self.filter.destroy()
+    
     self.filter_ui.destroy()
     if selectorIndex < 0:
       return
