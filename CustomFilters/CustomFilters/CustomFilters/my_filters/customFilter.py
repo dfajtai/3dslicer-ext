@@ -413,4 +413,15 @@ class CustomFilter:
   
   def destroy(self):
     # print("Filter destory called")
+    
+    
+    # destroy histogram items
+    if hasattr(self.UI,"histogram_plot_chart_node"):
+      slicer.mrmlScene.RemoveNode(self.UI.histogram_plot_chart_node)
+      
+    if hasattr(self.UI,"histogram_plot_series_node"):
+      slicer.mrmlScene.RemoveNode(self.UI.histogram_plot_series_node)
+      
+    if hasattr(self.UI,"histogram_table_node"):
+      slicer.mrmlScene.RemoveNode(self.UI.histogram_table_node)
     pass
