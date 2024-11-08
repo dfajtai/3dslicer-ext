@@ -396,9 +396,16 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     def onInitializeConfigsButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to initialize configs", waitCursor=True):
+            # Suppress VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(0)
+
             self.logic.initializeConfigs()
             open_folder(self.logic.outputDir)
             
+            
+            # Re-enable VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(1)
+
     
     
         
@@ -407,9 +414,18 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Run processing when user clicks "Apply" button.
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            self.logic.runAnalysis()
+            
+            
+            # Suppress VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(0)
 
-    
+
+            self.logic.runAnalysis()
+            
+            
+            # Re-enable VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(1)
+
 #
 # RTCompareLogic
 #
@@ -657,6 +673,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             
             target_entry = entries_dict.get(case_id)
             
+            slicer.app.processEvents()
             print(f"Processing case:\n{str(target_entry)}")
             
             slicer.mrmlScene.Clear()
@@ -670,7 +687,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
                 organ = grouping.get("organ")
                 structure_names = grouping.get("structure_names")
 
-                
+                slicer.app.processEvents()
                 print(f"Analyzing structures: {structure_names}")
                 
                 #results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_segmentation, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names":names}
@@ -737,6 +754,8 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         
         _volumes_df = pd.DataFrame(_volumes)
         _volumes_df.to_csv(os.path.join(self.outputDir,"volumes.csv"),index=False,float_format="%.4f")
+        
+        slicer.mrmlScene.Clear()
 #
 # RTCompareTest
 #
