@@ -9,12 +9,15 @@ from slicer.util import VTKObservationMixin
 
 from DICOMLib import DICOMUtils
 
-
+import numpy as np
 import pandas as pd
+import json
 
 from utils.RTCompare_config import RTCompareMeasurement
 from utils.show_table import populate_qtablewidget_with_dataframe
-from utils.rt_structure_to_segment import rt_struct_to_segment, extract_rt_struct_names, group_rt_struct_names
+from utils.rt_structure_to_segment import extract_rt_struct_names, group_rt_struct_names, grouped_rt_struct_to_segments, format_rt_struct_name
+from utils.open_folder import open_folder
+from utils.custom_segement_stats import calculate_stats
 
 #
 # RTCompare
@@ -27,10 +30,13 @@ __defaultStudyDesc__ = "Tervezés (CT)"
 __defaultModality__ = "RTSTRUCT"
 
 
-outputVolumeSpacingMm = [0.5, 0.5, 0.5]
-outputVolumeMarginMm = [5.0, 5.0, 5.0]
+__defaultStepSizes__ = [0.5, 0.5, 0.5]
+__defaultMargin__ = [5.0, 5.0, 5.0]
+__defaultExportLabelmap__ = False
+__defaultExportSurface__ = False
 
 
+__patientsCsv_cols__ = ["patient_id","patient_name","study_date","import_timestamp"]
 
 
 class RTCompare(ScriptedLoadableModule):
@@ -127,14 +133,32 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.tbModality.textChanged.connect(self.updateParameterNodeFromGUI)
         self.ui.tbStudyDesc.textChanged.connect(self.updateParameterNodeFromGUI)
         
-        self.ui.patientsCSVPath.currentPathChanged.connect(self.path_changed)
-        self.ui.jsonPath.currentPathChanged.connect(self.path_changed)
-        self.ui.resultsCSVPath.currentPathChanged.connect(self.path_changed)
-
-
+        self.ui.patientsCSVPath.connect("currentPathChanged(QString)",lambda path,name="patientsCsv": self.onPathChanged(path,name))
+        self.ui.configJsonPath.connect("currentPathChanged(QString)",lambda path,name="configJson": self.onPathChanged(path,name))
+        self.ui.resultsCSVPath.connect("currentPathChanged(QString)",lambda path,name="resultsCsv": self.onPathChanged(path,name))
+        
+        
+        
+        self.ui.margin.connect("coordinatesChanged(double*)",
+                                lambda val, widget=self.ui.margin, name = 'margin': self.onFloatVectorChanged(name,widget,val))
+        
+        self.ui.margin.coordinates = ','.join([str(np.round(val,2)) for val in __defaultMargin__])
+        
+        
+        self.ui.stepSizes.connect("coordinatesChanged(double*)",
+                                lambda val, widget=self.ui.stepSizes, name = 'stepSizes': self.onFloatVectorChanged(name,widget,val))
+        
+        self.ui.stepSizes.coordinates = ','.join([str(np.round(val,2)) for val in __defaultStepSizes__])
         
         self.ui.patientsTbl.selectionModel().selectionChanged.connect(self.selected_entry_changed)
         
+        
+        
+        self.ui.cbExportLabelmap.connect("stateChanged(int)", lambda val,name='exportLabelmap':self.onCheckboxChanged(bool(val),name))
+        self.ui.cbExportLabelmap.checked = __defaultExportLabelmap__
+        
+        self.ui.cbExportSurface.connect("stateChanged(int)", lambda val,name='exportSurface':self.onCheckboxChanged(bool(val),name))
+        self.ui.cbExportSurface.checked = __defaultExportSurface__
         
         # Buttons
         
@@ -256,6 +280,10 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.tbModality.text = self._parameterNode.GetParameter("acceptedModality")
         self.ui.tbStudyDesc.text = self._parameterNode.GetParameter("acceptedStudy")
         
+        self.ui.patientsCSVPath.currentPath = str(self._parameterNode.GetParameter("patientsCsv"))
+        self.ui.configJsonPath.currentPath = str(self._parameterNode.GetParameter("configJson"))
+        self.ui.resultsCSVPath.currentPath = str(self._parameterNode.GetParameter("resultsCsv"))
+        
 
         # All the GUI updates are done
         self._updatingGUIFromParameterNode = False
@@ -289,42 +317,65 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic.setAcceptedStudyDesc(self._parameterNode.GetParameter("acceptedStudy"))
         
         self.logic.syncParameters(self._parameterNode)
-
+       
         
         self._parameterNode.EndModify(wasModified)
         
-                
+    
         
     def outputChanged(self):
         outputDirectory =  self._parameterNode.GetParameter("outDir")
         self.ui.patientsCSVPath.currentPath = os.path.join(outputDirectory,"patients.csv")
-        self.ui.jsonPath.currentPath = os.path.join(outputDirectory,"config.json")
+        self.ui.configJsonPath.currentPath = os.path.join(outputDirectory,"config.json")
         self.ui.resultsCSVPath.currentPath = os.path.join(outputDirectory,"results.csv")
 
-    
-    def path_changed(self):        
-        self._parameterNode.SetParameter("patientCsv",str(self.ui.patientsCSVPath.currentPath))
-        self._parameterNode.SetParameter("configJson",str(self.ui.jsonPath.currentPath))
-        self._parameterNode.SetParameter("resultsCsv",str(self.ui.resultsCSVPath.currentPath))
-        
         
     def selected_entry_changed(self):
         current_selection = self.ui.patientsTbl.selectedIndexes()
         if len(current_selection)>0:
+            self.ui.btnExtractStructureInfo.enabled = True
+            
             current_selection = current_selection[0]
             tbl_selected_ID = self.ui.patientsTbl.item(current_selection.row(),0).text()
             self.logic.set_selected_entry(tbl_selected_ID)
+        else:
+            self.ui.btnExtractStructureInfo.enabled = True            
             
+    def onFloatVectorChanged(self, name, widget, val):
+        coords = [float(x) for x in widget.coordinates.split(',')]
+        if name == "stepSizes":
+            self.logic.stepSizes = coords
+        if name == "margin":
+            self.logic.stepSizes = coords
+            
+    
+    def onCheckboxChanged(self, val, name):
+        if name == "exportLabelmap":
+            self.logic.exportLabelmap = val
+        if name == "exportSurface":
+            self.logic.exportSurface = val
+            
+    def onPathChanged(self,path,name):
+        if name == "patientsCsv":
+            self._parameterNode.SetParameter("patientsCsv",str(self.ui.patientsCSVPath.currentPath))
+        if name == "configJson":    
+            self._parameterNode.SetParameter("configJson",str(self.ui.configJsonPath.currentPath))
+        if name == "resultsCsv":
+            self._parameterNode.SetParameter("resultsCsv",str(self.ui.resultsCSVPath.currentPath))
+            
+        
         
     def onInitializeButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to initialize DICOM DB", waitCursor=True):
             self.logic.initializeDB()
             self.ui.patientsTbl.enabled= True
-            self.ui.btnExtractStructureInfo.enabled = True
+            
+            self.ui.runBtn.enabled = True
             
             slicer.util.selectModule("RTCompare")
             
-            populate_qtablewidget_with_dataframe(self.logic.patients_df,self.ui.patientsTbl,["patient_id","patient_name","study_date"])
+            populate_qtablewidget_with_dataframe(self.logic.entries_df,self.ui.patientsTbl,["patient_id","patient_name","study_date","import_timestamp"])
+            self.ui.patientsTbl
             
     
     def onExtractStructureInfoButton(self):
@@ -332,11 +383,11 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic.extractInfo()
             
             
-            populate_qtablewidget_with_dataframe(self.logic.struct_info_df,self.ui.structsTbl,["group","type","structure_name"])
+            populate_qtablewidget_with_dataframe(self.logic.struct_info_df,self.ui.structsTbl,["organ","type","structure_name"])
             self.ui.structsTbl.enabled = True
             
             self.ui.patientsCSVPath.enabled = True
-            self.ui.jsonPath.enabled = True
+            self.ui.configJsonPath.enabled = True
             self.ui.initConfigsBtn.enabled = True
             
             self.ui.resultsCSVPath.enabled = True
@@ -346,8 +397,8 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onInitializeConfigsButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to initialize configs", waitCursor=True):
             self.logic.initializeConfigs()
-    
-
+            open_folder(self.logic.outputDir)
+            
     
     
         
@@ -356,7 +407,7 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Run processing when user clicks "Apply" button.
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            pass
+            self.logic.runAnalysis()
 
     
 #
@@ -388,12 +439,17 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         self.param_node = None
         
         self.RT_entries = []
-        self.patients_df = None
+        self.entries_df = None
         
         self.selected_entry = None
         
         self.struct_info_df = None
         
+        self.stepSizes = __defaultStepSizes__
+        self.margin = __defaultMargin__
+        
+        self.exportLabelmap = __defaultExportLabelmap__
+        self.exportSurface = __defaultExportSurface__
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -454,9 +510,9 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
     
     @property
     def file_paths(self):
-        return {"patient_csv":self.getParameterNode().GetParameter("patientCsv"),
-                "config_json":self.getParameterNode().GetParameter("configJson"),
-                "results_csv":self.getParameterNode().GetParameter("resultsCsv")}
+        return {"patientsCsv":self.getParameterNode().GetParameter("patientsCsv"),
+                "configJson":self.getParameterNode().GetParameter("configJson"),
+                "resultsCsv":self.getParameterNode().GetParameter("resultsCsv")}
         
     
     
@@ -521,7 +577,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
 
         self.RT_entries = entries
         
-        self.patients_df = pd.DataFrame([x.__dict__ for x in entries])
+        self.entries_df = pd.DataFrame([x.__dict__ for x in entries])
 
     
     def extractInfo(self):
@@ -530,17 +586,157 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             slicer.mrmlScene.Clear()
             DICOMUtils.loadSeriesByUID([self.selected_entry.series_uid])
             names = extract_rt_struct_names()
-            
-            # rt_struct_to_segment(outputVolumeSpacingMm=outputVolumeSpacingMm,outputVolumeMarginMm=outputVolumeMarginMm)
-        
+                    
         self.struct_info_df = pd.DataFrame(group_rt_struct_names(names))
         
         return names
     
                     
-    def initializeConfigs(self):
-        raise NotImplementedError
+    def initializeConfigs(self):      
+        assert isinstance(self.entries_df,pd.DataFrame)        
+        assert isinstance(self.struct_info_df,pd.DataFrame)
 
+        if not os.path.exists(self.outputDir):
+            os.makedirs(self.outputDir,exist_ok=True)
+            
+                
+        out_df = pd.DataFrame(self.entries_df[__patientsCsv_cols__])
+        out_df.loc[:,"MarkForProcessing"] = [1]*len(out_df.index)
+        out_df.to_csv(self.file_paths.get("patientsCsv"), index=False)
+        
+        # strucure default json
+        
+        groups = self.struct_info_df["organ"].unique().tolist()
+        
+        json_data = []
+        for g in groups:
+            _rows = self.struct_info_df[self.struct_info_df["organ"]==g]
+            types = _rows["type"].unique().tolist()
+            group_data = {"group":g,"organ":g,"types":types,"structure_names":_rows["structure_name"].unique().tolist()}
+            
+            json_data.append(group_data)
+            
+        with open(self.file_paths.get("configJson"),"w") as json_file:
+            json.dump(json_data,json_file,indent=4)
+    
+    def runAnalysis(self):
+        
+        assert os.path.exists(self.file_paths.get("patientsCsv"))
+        assert os.path.exists(self.file_paths.get("configJson"))
+    
+        entries_dict = dict([(f"{e.patient_id}_{e.study_date}",e) for e in self.RT_entries])
+        
+        _results = []
+        _volumes = []
+        
+        # load selected entries    
+        df = pd.read_csv(self.file_paths.get("patientsCsv"))
+        
+        
+        # load group configs
+        
+        configs = None
+        with open(self.file_paths.get("configJson"),"r") as json_file:
+            configs = json.load(json_file)
+        
+        
+        for index,row in df.iterrows():
+            patient_id, run_analysis, study_date = row.get("patient_id"), row.get("MarkForProcessing"), row.get("study_date")
+                       
+            case_id = f"{patient_id}_{study_date}"
+                        
+            if not bool(run_analysis):
+                continue
+            
+            if case_id not in entries_dict.keys():
+                continue
+            
+            case_dir = os.path.join(self.outputDir,case_id)
+            os.makedirs(case_dir,exist_ok=True)
+            
+            
+            target_entry = entries_dict.get(case_id)
+            
+            print(f"Processing case:\n{str(target_entry)}")
+            
+            slicer.mrmlScene.Clear()
+            DICOMUtils.loadSeriesByUID([target_entry.series_uid])
+            
+            
+            shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+            
+            for grouping in configs:
+                grouping_name = grouping.get("group")
+                organ = grouping.get("organ")
+                structure_names = grouping.get("structure_names")
+
+                
+                print(f"Analyzing structures: {structure_names}")
+                
+                #results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_segmentation, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names":names}
+                segment_data = grouped_rt_struct_to_segments(target_segment_names=structure_names,spacing=self.stepSizes,margin=self.margin)
+                
+                # calc stats
+                res_metrics, volumes, distances = calculate_stats(case_id= case_id,
+                                                                  grouping_name = grouping_name,
+                                                                  labelmap_nodes= segment_data.get("labelmaps"),
+                                                                  labelmap_names=segment_data.get("names"),
+                                                                  step_sizes=self.stepSizes)
+                
+                res_metrics_df = pd.DataFrame(res_metrics)
+                res_metrics_df.to_csv(os.path.join(case_dir,f"{grouping_name}_results.csv"),index=False,float_format="%.4f")
+                
+                volumes_df = pd.DataFrame(volumes)
+                volumes_df.to_csv(os.path.join(case_dir,f"{grouping_name}_volumes.csv"),index=False,float_format="%.4f")
+                
+                distances_df = pd.DataFrame(distances)
+                distances_df.to_csv(os.path.join(case_dir,f"{grouping_name}_distances.csv"),index=False,float_format="%.4f")
+                
+                
+                _results.extend(res_metrics)
+                _volumes.extend(volumes)
+                
+                if self.exportLabelmap:
+                    _out_dir = os.path.join(case_dir,"labelmaps")
+                    os.makedirs(_out_dir,exist_ok=True)
+                    for l,n in zip(segment_data.get("labelmaps"),segment_data.get("names")):
+                        success = slicer.util.saveNode(l, os.path.join(_out_dir,f"{n}.nii.gz"))
+                    
+                if self.exportSurface:
+                    _out_dir = os.path.join(case_dir,"models")
+                    os.makedirs(_out_dir,exist_ok=True)
+                    
+                    exportFolderItemId = shNode.CreateFolderItem(shNode.GetSceneItemID(), "Segment_models")
+                    success = slicer.modules.segmentations.logic().ExportAllSegmentsToModels(segment_data.get("new_segmentation"), exportFolderItemId)
+                    
+                    if success:
+                        child_item_ids = vtk.vtkIdList()
+                        shNode.GetItemChildren(exportFolderItemId, child_item_ids)
+
+
+                        for i in range(child_item_ids.GetNumberOfIds()):
+                            child_item_id = child_item_ids.GetId(i)
+                            
+                            # Get the associated node for the child item
+                            child_node = shNode.GetItemDataNode(child_item_id)
+                            slicer.util.exportNode(child_node,os.path.join(_out_dir,f"{child_node.GetName()}.stl"))
+                            slicer.mrmlScene.RemoveNode(child_node)
+                            
+                        
+                    shNode.RemoveItem(exportFolderItemId)
+                    
+                # clean up
+                slicer.mrmlScene.RemoveNode(segment_data.get("ref_vol"))
+                slicer.mrmlScene.RemoveNode(segment_data.get("new_segmentation"))
+                for l in segment_data.get("labelmaps"):
+                    slicer.mrmlScene.RemoveNode(l)
+                
+        
+        _res_df = pd.DataFrame(_results)
+        _res_df.to_csv(self.file_paths.get("resultsCsv"),index=False,float_format="%.4f")
+        
+        _volumes_df = pd.DataFrame(_volumes)
+        _volumes_df.to_csv(os.path.join(self.outputDir,"volumes.csv"),index=False,float_format="%.4f")
 #
 # RTCompareTest
 #

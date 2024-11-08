@@ -11,7 +11,7 @@
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <item>
+   <item alignment="Qt::AlignTop">
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
       <string>Settings</string>
@@ -22,18 +22,46 @@
      <property name="collapsedHeight">
       <number>0</number>
      </property>
-     <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Accepted Study Description</string>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <property name="bottomMargin">
+       <number>3</number>
+      </property>
+      <item row="2" column="1">
+       <widget class="ctkCoordinatesWidget" name="stepSizes">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="coordinates" stdset="0">
+         <string>0.1,0.1,0.1</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_9">
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_11">
         <property name="text">
-         <string>Accepted Modality</string>
+         <string>Margin [mm]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="ctkCoordinatesWidget" name="margin">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="coordinates" stdset="0">
+         <string>0,0,0</string>
         </property>
        </widget>
       </item>
@@ -44,8 +72,43 @@
         </property>
        </widget>
       </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_9">
+        <property name="text">
+         <string>Accepted Modality</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="cbExportLabelmap">
+        <property name="text">
+         <string>Export labelmaps</string>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
        <widget class="QLineEdit" name="tbModality"/>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Accepted Study Description</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_10">
+        <property name="text">
+         <string>Sampling resolution [mm]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QCheckBox" name="cbExportSurface">
+        <property name="text">
+         <string>Export surface models</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -56,6 +119,81 @@
       <string>Control</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
+      <item row="10" column="0" colspan="2">
+       <widget class="QPushButton" name="initConfigsBtn">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Initialize configs</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Patients CSV</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="1">
+       <widget class="ctkPathLineEdit" name="configJsonPath">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="showHistoryButton">
+         <bool>false</bool>
+        </property>
+        <property name="nameFilters">
+         <stringlist>
+          <string>*.json</string>
+         </stringlist>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="ctkDirectoryButton" name="sourceDirBtn">
+        <property name="elideMode">
+         <enum>Qt::ElideMiddle</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="1">
+       <widget class="ctkPathLineEdit" name="resultsCSVPath">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="showHistoryButton">
+         <bool>false</bool>
+        </property>
+        <property name="nameFilters">
+         <stringlist>
+          <string>*.csv</string>
+         </stringlist>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Output folder</string>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Results CSV</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>Source folder</string>
+        </property>
+       </widget>
+      </item>
       <item row="2" column="0" colspan="2">
        <widget class="QPushButton" name="initBtn">
         <property name="text">
@@ -63,10 +201,36 @@
         </property>
        </widget>
       </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QPushButton" name="btnExtractStructureInfo">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Extract structure info</string>
+        </property>
+       </widget>
+      </item>
       <item row="9" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
          <string>Config JSON</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0" colspan="2">
+       <widget class="QTableWidget" name="patientsTbl">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
+        </property>
+        <property name="sortingEnabled">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -85,28 +249,10 @@
         </property>
        </widget>
       </item>
-      <item row="10" column="0" colspan="2">
-       <widget class="QPushButton" name="initConfigsBtn">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_6">
         <property name="text">
-         <string>Initialize configs</string>
-        </property>
-       </widget>
-      </item>
-      <item row="11" column="1">
-       <widget class="ctkPathLineEdit" name="resultsCSVPath">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="showHistoryButton">
-         <bool>false</bool>
-        </property>
-        <property name="nameFilters">
-         <stringlist>
-          <string>*.csv</string>
-         </stringlist>
+         <string>Structures</string>
         </property>
        </widget>
       </item>
@@ -136,93 +282,10 @@
         </property>
        </widget>
       </item>
-      <item row="9" column="1">
-       <widget class="ctkPathLineEdit" name="jsonPath">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="showHistoryButton">
-         <bool>false</bool>
-        </property>
-        <property name="nameFilters">
-         <stringlist>
-          <string>*.json</string>
-         </stringlist>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Patients CSV</string>
-        </property>
-       </widget>
-      </item>
       <item row="3" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>Patients</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="0" colspan="2">
-       <widget class="QTableWidget" name="patientsTbl">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="selectionMode">
-         <enum>QAbstractItemView::SingleSelection</enum>
-        </property>
-        <property name="selectionBehavior">
-         <enum>QAbstractItemView::SelectRows</enum>
-        </property>
-        <property name="sortingEnabled">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Output folder</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Structures</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkDirectoryButton" name="sourceDirBtn">
-        <property name="elideMode">
-         <enum>Qt::ElideMiddle</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="11" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>Results CSV</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Source folder</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0" colspan="2">
-       <widget class="QPushButton" name="btnExtractStructureInfo">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Extract structure info</string>
         </property>
        </widget>
       </item>
@@ -263,6 +326,11 @@
    <extends>QWidget</extends>
    <header>ctkCollapsibleButton.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCoordinatesWidget</class>
+   <extends>QWidget</extends>
+   <header>ctkCoordinatesWidget.h</header>
   </customwidget>
   <customwidget>
    <class>ctkDirectoryButton</class>
