@@ -36,7 +36,7 @@ __defaultExportLabelmap__ = False
 __defaultExportSurface__ = False
 
 
-__patientsCsv_cols__ = ["patient_id","patient_name","study_date","import_timestamp"]
+__patientsCsv_cols__ = ["patient_id","patient_name","study_date","import_timestamp","study_desc","series_description"]
 
 
 class RTCompare(ScriptedLoadableModule):
@@ -53,7 +53,7 @@ class RTCompare(ScriptedLoadableModule):
         # TODO: update with short description of the module and a link to online module documentation
         self.parent.helpText = """This is a neat little extension for on-demand RT structure comparison"""
         # TODO: replace with organization, grant and thanks
-        self.parent.acknowledgementText = """Noone just for myself."""
+        self.parent.acknowledgementText = """SlicerRT guys for their import lib."""
 
         # Additional initialization step after application startup is complete
         slicer.app.connect("startupCompleted()", registerSampleData)
