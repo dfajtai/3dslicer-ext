@@ -26,19 +26,17 @@
       <property name="bottomMargin">
        <number>3</number>
       </property>
-      <item row="2" column="1">
-       <widget class="ctkCoordinatesWidget" name="stepSizes">
-        <property name="decimals">
-         <number>2</number>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_9">
+        <property name="text">
+         <string>Accepted Modality</string>
         </property>
-        <property name="minimum">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>10.000000000000000</double>
-        </property>
-        <property name="coordinates" stdset="0">
-         <string>0.1,0.1,0.1</string>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Accepted Study Description</string>
         </property>
        </widget>
       </item>
@@ -46,6 +44,30 @@
        <widget class="QLabel" name="label_11">
         <property name="text">
          <string>Margin [mm]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="tbStudyDesc">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="cbExportLabelmap">
+        <property name="text">
+         <string>Export labelmaps</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="tbModality"/>
+      </item>
+      <item row="5" column="1">
+       <widget class="QCheckBox" name="cbExportSurface">
+        <property name="text">
+         <string>Export surface models</string>
         </property>
        </widget>
       </item>
@@ -65,37 +87,6 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="tbStudyDesc">
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_9">
-        <property name="text">
-         <string>Accepted Modality</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <widget class="QCheckBox" name="cbExportLabelmap">
-        <property name="text">
-         <string>Export labelmaps</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="tbModality"/>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Accepted Study Description</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_10">
         <property name="text">
@@ -103,10 +94,26 @@
         </property>
        </widget>
       </item>
-      <item row="5" column="1">
-       <widget class="QCheckBox" name="cbExportSurface">
+      <item row="2" column="1">
+       <widget class="ctkCoordinatesWidget" name="stepSizes">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="coordinates" stdset="0">
+         <string>0.1,0.1,0.1</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0" colspan="2">
+       <widget class="QCheckBox" name="cbBatchProcessing">
         <property name="text">
-         <string>Export surface models</string>
+         <string>Batch processing (window will be freezed during the procedure)</string>
         </property>
        </widget>
       </item>
@@ -302,6 +309,13 @@
      </property>
      <property name="text">
       <string>Start processing</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btnMergeResult">
+     <property name="text">
+      <string>Merge results</string>
      </property>
     </widget>
    </item>
