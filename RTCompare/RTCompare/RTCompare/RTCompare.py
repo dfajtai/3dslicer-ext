@@ -655,144 +655,27 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         with open(self.file_paths.get("configJson"),"w") as json_file:
             json.dump(json_data,json_file,indent=4)
     
-    def runAnalysis(self):
-        
-        assert os.path.exists(self.file_paths.get("patientsCsv"))
-        assert os.path.exists(self.file_paths.get("configJson"))
     
-        entries_dict = dict([(f"{e.patient_id}_{e.study_date}",e) for e in self.RT_entries])
+    def process_entry(self,entry, configs):
+        assert isinstance(entry,RTCompareMeasurement)
         
         _results = []
         _volumes = []
         
-        # load selected entries    
-        df = pd.read_csv(self.file_paths.get("patientsCsv"))
+        try:
         
-        
-        # load group configs
-        
-        configs = None
-        with open(self.file_paths.get("configJson"),"r") as json_file:
-            configs = json.load(json_file)
-        
-        if self.batchProcessing:        
-        
-            for index,row in df.iterrows():
-                patient_id, run_analysis, study_date = row.get("patient_id"), row.get("MarkForProcessing"), row.get("study_date")
-                        
-                case_id = f"{patient_id}_{study_date}"
-                            
-                if not bool(run_analysis):
-                    continue
-                
-                if case_id not in entries_dict.keys():
-                    continue
-                
-                case_dir = os.path.join(self.outputDir,case_id)
-                os.makedirs(case_dir,exist_ok=True)
-                
-                
-                target_entry = entries_dict.get(case_id)
-                
-                slicer.app.processEvents()
-                print(f"Processing case:\n{str(target_entry)}")
-                
-                slicer.mrmlScene.Clear()
-                DICOMUtils.loadSeriesByUID([target_entry.series_uid])
-                
-                
-                shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-                
-                for grouping in configs:
-                    grouping_name = grouping.get("group")
-                    organ = grouping.get("organ")
-                    structure_names = grouping.get("structure_names")
-
-                    slicer.app.processEvents()
-                    print(f"Analyzing structures: {structure_names}")
-                    
-                    #results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_segmentation, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names":names}
-                    segment_data = grouped_rt_struct_to_segments(target_segment_names=structure_names,spacing=self.stepSizes,margin=self.margin)
-                    
-                    # calc stats
-                    res_metrics, volumes, distances = calculate_stats(case_id= case_id,
-                                                                    grouping_name = grouping_name,
-                                                                    labelmap_nodes= segment_data.get("labelmaps"),
-                                                                    labelmap_names=segment_data.get("names"),
-                                                                    step_sizes=self.stepSizes)
-                    
-                    res_metrics_df = pd.DataFrame(res_metrics)
-                    res_metrics_df.to_csv(os.path.join(case_dir,f"{grouping_name}_results.csv"),index=False,float_format="%.4f")
-                    
-                    volumes_df = pd.DataFrame(volumes)
-                    volumes_df.to_csv(os.path.join(case_dir,f"{grouping_name}_volumes.csv"),index=False,float_format="%.4f")
-                    
-                    distances_df = pd.DataFrame(distances)
-                    distances_df.to_csv(os.path.join(case_dir,f"{grouping_name}_distances.csv"),index=False,float_format="%.4f")
-                    
-                    
-                    _results.extend(res_metrics)
-                    _volumes.extend(volumes)
-                    
-                    if self.exportLabelmap:
-                        _out_dir = os.path.join(case_dir,"labelmaps")
-                        os.makedirs(_out_dir,exist_ok=True)
-                        for l,n in zip(segment_data.get("labelmaps"),segment_data.get("names")):
-                            success = slicer.util.saveNode(l, os.path.join(_out_dir,f"{n}.nii.gz"))
-                        
-                    if self.exportSurface:
-                        _out_dir = os.path.join(case_dir,"models")
-                        os.makedirs(_out_dir,exist_ok=True)
-                        
-                        exportFolderItemId = shNode.CreateFolderItem(shNode.GetSceneItemID(), "Segment_models")
-                        success = slicer.modules.segmentations.logic().ExportAllSegmentsToModels(segment_data.get("new_segmentation"), exportFolderItemId)
-                        
-                        if success:
-                            child_item_ids = vtk.vtkIdList()
-                            shNode.GetItemChildren(exportFolderItemId, child_item_ids)
-
-
-                            for i in range(child_item_ids.GetNumberOfIds()):
-                                child_item_id = child_item_ids.GetId(i)
-                                
-                                # Get the associated node for the child item
-                                child_node = shNode.GetItemDataNode(child_item_id)
-                                slicer.util.exportNode(child_node,os.path.join(_out_dir,f"{child_node.GetName()}.stl"))
-                                slicer.mrmlScene.RemoveNode(child_node)
-                                
-                            
-                        shNode.RemoveItem(exportFolderItemId)
-                        
-                    # clean up
-                    slicer.mrmlScene.RemoveNode(segment_data.get("ref_vol"))
-                    slicer.mrmlScene.RemoveNode(segment_data.get("new_segmentation"))
-                    for l in segment_data.get("labelmaps"):
-                        slicer.mrmlScene.RemoveNode(l)
-                    
-            
-            _res_df = pd.DataFrame(_results)
-            _res_df.to_csv(self.file_paths.get("resultsCsv"),index=False,float_format="%.4f")
-            
-            _volumes_df = pd.DataFrame(_volumes)
-            _volumes_df.to_csv(os.path.join(self.outputDir,"volumes.csv"),index=False,float_format="%.4f")
-            
-            slicer.mrmlScene.Clear()
-        else:
-            target_entry = self.selected_entry
-            patient_id = target_entry.patient_id
-            study_date = target_entry.study_date
-            
+            patient_id = entry.patient_id
+            study_date = entry.study_date
             
             case_id = f"{patient_id}_{study_date}"
             case_dir = os.path.join(self.outputDir,case_id)
             os.makedirs(case_dir,exist_ok=True)
             
-                        
             slicer.app.processEvents()
-            print(f"Processing case:\n{str(target_entry)}")
+            print(f"Processing case:\n{str(entry)}")
             
             slicer.mrmlScene.Clear()
-            DICOMUtils.loadSeriesByUID([target_entry.series_uid])
+            DICOMUtils.loadSeriesByUID([entry.series_uid])
             
             
             shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
@@ -825,6 +708,8 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
                 distances_df.to_csv(os.path.join(case_dir,f"{grouping_name}_distances.csv"),index=False,float_format="%.4f")
                 
                 
+                _results.extend(res_metrics)
+                _volumes.extend(volumes)
                 
                 if self.exportLabelmap:
                     _out_dir = os.path.join(case_dir,"labelmaps")
@@ -860,7 +745,64 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
                 slicer.mrmlScene.RemoveNode(segment_data.get("new_segmentation"))
                 for l in segment_data.get("labelmaps"):
                     slicer.mrmlScene.RemoveNode(l)
+        except Exception as exc:
+            print(exc)
+            pass
+        
+        
+        return _results, _volumes
+    
+    def runAnalysis(self):
+        
+        assert os.path.exists(self.file_paths.get("patientsCsv"))
+        assert os.path.exists(self.file_paths.get("configJson"))
+    
+        entries_dict = dict([(f"{e.patient_id}_{e.study_date}",e) for e in self.RT_entries])
+        
+        _results = []
+        _volumes = []
+        
+        # load selected entries    
+        df = pd.read_csv(self.file_paths.get("patientsCsv"))
+        
+        
+        # load group configs
+        
+        configs = None
+        with open(self.file_paths.get("configJson"),"r") as json_file:
+            configs = json.load(json_file)
+        
+        if self.batchProcessing:        
+        
+            for index,row in df.iterrows():
+                patient_id, run_analysis, study_date = row.get("patient_id"), row.get("MarkForProcessing"), row.get("study_date")
+                        
+                case_id = f"{patient_id}_{study_date}"
+                            
+                if not bool(run_analysis):
+                    continue
+                
+                if case_id not in entries_dict.keys():
+                    continue
+                
+                target_entry = entries_dict.get(case_id)
+                __results, __volumes = self.process_entry(target_entry,configs=configs)
+                _results.extend(__results)
+                _volumes.extend(__volumes)
+                    
+            
+            _res_df = pd.DataFrame(_results)
+            _res_df.to_csv(self.file_paths.get("resultsCsv"),index=False,float_format="%.4f")
+            
+            _volumes_df = pd.DataFrame(_volumes)
+            _volumes_df.to_csv(os.path.join(self.outputDir,"volumes.csv"),index=False,float_format="%.4f")
+            
             slicer.mrmlScene.Clear()
+        else:
+            target_entry = self.selected_entry
+            __results, __volumes = self.process_entry(target_entry,configs=configs)
+            
+            
                     
     def mergeResults(self):
         assert os.path.exists(self.file_paths.get("patientsCsv"))
