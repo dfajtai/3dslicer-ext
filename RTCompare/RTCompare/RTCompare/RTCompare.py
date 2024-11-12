@@ -749,6 +749,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             print(exc)
             pass
         
+        slicer.mrmlScene.Clear()
         
         return _results, _volumes
     
@@ -801,7 +802,8 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         else:
             target_entry = self.selected_entry
             __results, __volumes = self.process_entry(target_entry,configs=configs)
-            
+        
+        print("\nDONE!\n")
             
                     
     def mergeResults(self):
@@ -869,7 +871,8 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         
         volumes_df = pd.DataFrame(_volumes)
         volumes_df.to_csv(os.path.join(self.outputDir,"volumes.csv"),index=False,float_format="%.4f")
-    
+
+        print("\nDONE!\n")
 #
 # RTCompareTest
 #

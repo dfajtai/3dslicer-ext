@@ -115,4 +115,8 @@ def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
             new_segment_index +=1
             
         results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_seg, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names": names}
+        
+        del(imageData)
+        
+        
         return results
