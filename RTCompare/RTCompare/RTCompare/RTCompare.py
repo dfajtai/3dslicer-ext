@@ -392,8 +392,11 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     def onExtractStructureInfoButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to extract structure info", waitCursor=True):
+            vtk.vtkObject.SetGlobalWarningDisplay(0)
+            
             self.logic.extractInfo()
             
+            vtk.vtkObject.SetGlobalWarningDisplay(1)            
             
             populate_qtablewidget_with_dataframe(self.logic.struct_info_df,self.ui.structsTbl,["organ","type","structure_name"])
             self.ui.structsTbl.enabled = True
