@@ -36,6 +36,8 @@ __defaultExportLabelmap__ = False
 __defaultExportSurface__ = False
 __defaultBatchProcessing__ = False
 
+__forcedKeepAlive__ = False
+
 
 __patientsCsv_cols__ = ["patient_id","patient_name","study_date","import_timestamp","study_desc","series_description"]
 
@@ -172,6 +174,7 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.btnExtractStructureInfo.connect('clicked(bool)',self.onExtractStructureInfoButton)
         self.ui.initConfigsBtn.connect('clicked(bool)',self.onInitializeConfigsButton)
         self.ui.runBtn.connect('clicked(bool)', self.onStartProcessingButton)
+        self.ui.btnManualImportProcessing.connect('clicked(bool)', self.onManualImportProcessingButton)
         self.ui.btnMergeResult.connect('clicked(bool)', self.onMergeButtonClick)
     
     
@@ -383,6 +386,7 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.patientsTbl.enabled= True
             
             self.ui.runBtn.enabled = True
+            self.ui.btnManualImportProcessing.enabled = True
             
             slicer.util.selectModule("RTCompare")
             
@@ -447,7 +451,25 @@ class RTCompareWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         with slicer.util.tryWithErrorDisplay("Failed to merge results.", waitCursor=True):
             self.logic.mergeResults()
-#
+
+    def onManualImportProcessingButton(self):
+        """
+        Run processing when user clicks "Apply" button.
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            
+            
+            # Suppress VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(0)
+
+
+            self.logic.manual_process()
+            
+            
+            # Re-enable VTK warnings
+            vtk.vtkObject.SetGlobalWarningDisplay(1)
+    
+# 
 # RTCompareLogic
 #
 
@@ -623,9 +645,13 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         names = []
         if self.selected_entry:
             slicer.mrmlScene.Clear()
-            DICOMUtils.loadSeriesByUID([self.selected_entry.series_uid])
-            names = extract_rt_struct_names()
-                    
+            try:
+                DICOMUtils.loadSeriesByUID([self.selected_entry.series_uid])
+                names = extract_rt_struct_names()
+            except Exception as e:
+                print(e)
+            
+            
         self.struct_info_df = pd.DataFrame(group_rt_struct_names(names))
         
         return names
@@ -659,7 +685,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             json.dump(json_data,json_file,indent=4)
     
     
-    def process_entry(self,entry, configs):
+    def process_entry(self, entry, configs, load_series = True, unload_series = True, keep_alive = False ):
         assert isinstance(entry,RTCompareMeasurement)
         
         _results = []
@@ -674,11 +700,12 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             case_dir = os.path.join(self.outputDir,case_id)
             os.makedirs(case_dir,exist_ok=True)
             
-            slicer.app.processEvents()
             print(f"Processing case:\n{str(entry)}")
+            slicer.app.processEvents()
             
-            slicer.mrmlScene.Clear()
-            DICOMUtils.loadSeriesByUID([entry.series_uid])
+            if load_series:
+                slicer.mrmlScene.Clear()
+                DICOMUtils.loadSeriesByUID([entry.series_uid])
             
             
             shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
@@ -688,18 +715,29 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
                 organ = grouping.get("organ")
                 structure_names = grouping.get("structure_names")
 
-                slicer.app.processEvents()
                 print(f"Analyzing structures: {structure_names}")
+                slicer.app.processEvents()
+                
                 
                 #results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_segmentation, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names":names}
-                segment_data = grouped_rt_struct_to_segments(target_segment_names=structure_names,spacing=self.stepSizes,margin=self.margin)
+                segment_data = grouped_rt_struct_to_segments(target_segment_names=structure_names,
+                                                             spacing=self.stepSizes,
+                                                             margin=self.margin,
+                                                             keep_alive=keep_alive)
+                
+                if keep_alive:
+                    slicer.app.processEvents()
                 
                 # calc stats
                 res_metrics, volumes, distances = calculate_stats(case_id= case_id,
                                                                 grouping_name = grouping_name,
                                                                 labelmap_nodes= segment_data.get("labelmaps"),
                                                                 labelmap_names=segment_data.get("names"),
-                                                                step_sizes=self.stepSizes)
+                                                                step_sizes=self.stepSizes,
+                                                                keep_alive = keep_alive)
+                
+                if keep_alive:
+                    slicer.app.processEvents()
                 
                 res_metrics_df = pd.DataFrame(res_metrics)
                 res_metrics_df.to_csv(os.path.join(case_dir,f"{grouping_name}_results.csv"),index=False,float_format="%.4f")
@@ -751,10 +789,13 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
         except Exception as exc:
             print(exc)
             pass
-        
-        slicer.mrmlScene.Clear()
+        if unload_series:
+            slicer.mrmlScene.Clear()
         
         return _results, _volumes
+    
+
+        
     
     def runAnalysis(self):
         
@@ -790,7 +831,7 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
                     continue
                 
                 target_entry = entries_dict.get(case_id)
-                __results, __volumes = self.process_entry(target_entry,configs=configs)
+                __results, __volumes = self.process_entry(target_entry,configs=configs, keep_alive=__forcedKeepAlive__)
                 _results.extend(__results)
                 _volumes.extend(__volumes)
                     
@@ -804,10 +845,40 @@ class RTCompareLogic(ScriptedLoadableModuleLogic):
             slicer.mrmlScene.Clear()
         else:
             target_entry = self.selected_entry
-            __results, __volumes = self.process_entry(target_entry,configs=configs)
+            __results, __volumes = self.process_entry(target_entry,configs=configs, keep_alive=__forcedKeepAlive__)
         
         print("\nDONE!\n")
-            
+        
+        
+    def manual_process(self):
+        
+        assert os.path.exists(self.file_paths.get("patientsCsv"))
+        assert os.path.exists(self.file_paths.get("configJson"))
+    
+        entries_dict = dict([(f"{e.patient_id}_{e.study_date}",e) for e in self.RT_entries])
+        
+        _results = []
+        _volumes = []
+        
+        # load selected entries    
+        df = pd.read_csv(self.file_paths.get("patientsCsv"))
+        
+        
+        # load group configs
+        
+        configs = None
+        with open(self.file_paths.get("configJson"),"r") as json_file:
+            configs = json.load(json_file)
+        
+
+        target_entry = self.selected_entry
+        __results, __volumes = self.process_entry(target_entry,
+                                                  configs=configs, 
+                                                  load_series=False,
+                                                  unload_series=False, 
+                                                  keep_alive=__forcedKeepAlive__)
+        
+        print("\nDONE!\n")
                     
     def mergeResults(self):
         assert os.path.exists(self.file_paths.get("patientsCsv"))

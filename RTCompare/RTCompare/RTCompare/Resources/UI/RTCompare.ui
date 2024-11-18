@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>477</width>
-    <height>817</height>
+    <height>894</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -26,34 +26,6 @@
       <property name="bottomMargin">
        <number>3</number>
       </property>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_9">
-        <property name="text">
-         <string>Accepted Modality</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Accepted Study Description</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_11">
-        <property name="text">
-         <string>Margin [mm]</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="tbStudyDesc">
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
       <item row="5" column="0">
        <widget class="QCheckBox" name="cbExportLabelmap">
         <property name="text">
@@ -64,10 +36,38 @@
       <item row="1" column="1">
        <widget class="QLineEdit" name="tbModality"/>
       </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_10">
+        <property name="text">
+         <string>Sampling resolution [mm]</string>
+        </property>
+       </widget>
+      </item>
       <item row="5" column="1">
        <widget class="QCheckBox" name="cbExportSurface">
         <property name="text">
          <string>Export surface models</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Accepted Study Description</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0" colspan="2">
+       <widget class="QCheckBox" name="cbBatchProcessing">
+        <property name="text">
+         <string>Batch processing (window will be freezed during the procedure)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_11">
+        <property name="text">
+         <string>Margin [mm]</string>
         </property>
        </widget>
       </item>
@@ -87,13 +87,6 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_10">
-        <property name="text">
-         <string>Sampling resolution [mm]</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="1">
        <widget class="ctkCoordinatesWidget" name="stepSizes">
         <property name="decimals">
@@ -110,10 +103,27 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="2">
-       <widget class="QCheckBox" name="cbBatchProcessing">
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_9">
         <property name="text">
-         <string>Batch processing (window will be freezed during the procedure)</string>
+         <string>Accepted Modality</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="tbStudyDesc">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="2">
+       <widget class="QPushButton" name="btnManualImportProcessing">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Process manually imported data as selected entry</string>
         </property>
        </widget>
       </item>

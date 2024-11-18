@@ -5,6 +5,8 @@ import itertools
 from collections import OrderedDict
 import copy
 
+import slicer
+
 from typing import Dict, Union, Optional, Sequence, Set, List
 
 def computeQualityMeasures(lP: np.ndarray,
@@ -138,7 +140,7 @@ def computeQualityMeasures(lP: np.ndarray,
 
     return quality
 
-def calculate_stats(case_id,grouping_name, labelmap_nodes, labelmap_names, step_sizes ):
+def calculate_stats(case_id,grouping_name, labelmap_nodes, labelmap_names, step_sizes, keep_alive = False ):
     res_metrics = []
     volumes = []
     distances = []
@@ -155,6 +157,8 @@ def calculate_stats(case_id,grouping_name, labelmap_nodes, labelmap_names, step_
         volumes.append(OrderedDict(case_id = case_id,grouping_name=grouping_name,
                             segmentation = name,
                             vol_ccm = np.sum(image_data>0)*vox_vol/1000.0))
+        if keep_alive:
+            slicer.app.processEvents()
         
         
     combinations = list(itertools.combinations(image_dict.keys(), 2))
@@ -188,6 +192,9 @@ def calculate_stats(case_id,grouping_name, labelmap_nodes, labelmap_names, step_
         for key,value in metrics.items():
             res_metrics.append(OrderedDict(case_id = case_id,grouping_name=grouping_name, first = c[0],second = c[1],metric = key, value = value))
 
+        if keep_alive:
+            slicer.app.processEvents()
+        
     del image_dict
     
     

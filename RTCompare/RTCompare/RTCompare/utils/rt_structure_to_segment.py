@@ -11,7 +11,7 @@ def extract_rt_struct_names():
     for _segment_node in allSegmentNodes:
         seg_node_name = _segment_node.GetName()
         segmentation_node = slicer.util.getNode(seg_node_name)
-        segmentation_node.CreateBinaryLabelmapRepresentation()
+        # segmentation_node.CreateBinaryLabelmapRepresentation()
     
         segmentation = segmentation_node.GetSegmentation()
         num_of_segments = segmentation.GetNumberOfSegments()
@@ -40,7 +40,7 @@ def group_rt_struct_names(names):
 
 
 
-def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
+def grouped_rt_struct_to_segments(target_segment_names,spacing,margin,keep_alive = False):
     allSegmentNodes = slicer.util.getNodes('vtkMRMLSegmentationNode*').values()
 
     colorTableNode = slicer.mrmlScene.GetFirstNodeByName('vtkMRMLColorTableNodeGreen')
@@ -49,7 +49,7 @@ def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
     for _segment_node in allSegmentNodes:
         seg_node_name = _segment_node.GetName()
         segmentation_node = slicer.util.getNode(seg_node_name)
-        segmentation_node.CreateBinaryLabelmapRepresentation()
+        # segmentation_node.CreateBinaryLabelmapRepresentation()
     
         segmentation = segmentation_node.GetSegmentation()
         num_of_segments = segmentation.GetNumberOfSegments()
@@ -65,6 +65,10 @@ def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
             _bounds = np.zeros(6)
             segment.GetBounds(_bounds)
             bounds.append(_bounds)
+            
+            if keep_alive:
+                print(f"Segement '{segment_name}' bounds: '{_bounds}'")
+                slicer.app.processEvents()
             
         bounds = np.array(bounds)
         mutual_bounds = [bounds[:,0].min(),bounds[:,1].max(),bounds[:,2].min(),bounds[:,3].max(),bounds[:,4].min(),bounds[:,5].max()]
@@ -88,6 +92,8 @@ def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
         new_seg.SetReferenceImageGeometryParameterFromVolumeNode(referenceVolumeNode)
         new_segmentation = new_seg.GetSegmentation()
         
+        if keep_alive:
+            slicer.app.processEvents()
         
         new_segment_index = 0
         labelmaps = []
@@ -113,6 +119,9 @@ def grouped_rt_struct_to_segments(target_segment_names,spacing,margin):
             labelmaps.append(labelmapVolumeNode)
             names.append(format_rt_struct_name(segment_name))
             new_segment_index +=1
+            if keep_alive:
+                print(f"Segement '{segment_name}' processed")
+                slicer.app.processEvents()
             
         results = {"ref_vol":referenceVolumeNode, "new_segmentation":new_seg, "number_of_segments":new_segment_index,"labelmaps":labelmaps,"names": names}
         
