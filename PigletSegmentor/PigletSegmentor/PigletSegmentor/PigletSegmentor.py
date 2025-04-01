@@ -23,7 +23,10 @@ __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
 __study_dir__ =  os.path.join(current_data_path,"segmentation")
 
-segment_names = ["body","skeleton","earring", "bone_1","bone_2"]
+enable_volume_rendering = True
+
+
+segment_names = ["body","skeleton","earring_L", "earring_R", "bone_1","bone_2"]
 
 
 def fix_path(path):
@@ -101,6 +104,7 @@ class PigletSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.tbl_selected_ID = ""
     self.tblSelectedIndex = None
     self.table_lock = False
+    self.volume_rendering = enable_volume_rendering
 
 
   def setup(self):
@@ -386,7 +390,7 @@ class PigletSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if not self.tbl_selected_ID:
         return
 
-      load_success = self.logic.load_specimen(self.tbl_selected_ID,load_bg=True)
+      load_success = self.logic.load_specimen(self.tbl_selected_ID,load_bg=True, volume_rendering=self.volume_rendering)
       self.ui.btnLoadSelected.enabled = not self.logic.hasActiveSpecimen
       if self.logic.hasActiveSpecimen:
         self.ui.lblActiveSpecimen.text= f"{self.logic.active_specimen.ID}"
@@ -554,7 +558,7 @@ class PigletSegmentorLogic(ScriptedLoadableModuleLogic):
     c.setDefaultButton(qt.QMessageBox.Ok)
     answer = c.exec_()
 
-  def load_specimen(self, ID, load_bg = True):
+  def load_specimen(self, ID, load_bg = True, volume_rendering = True):
     target_specimen = self.Specimens.get((ID))
 
     if isinstance(self.active_specimen,Specimen):
@@ -564,7 +568,7 @@ class PigletSegmentorLogic(ScriptedLoadableModuleLogic):
     if isinstance(target_specimen,type(None)):
       raise ValueError(f"Specimen with ID={ID} not initialized")
 
-    target_specimen.load(load_bg = load_bg)
+    target_specimen.load(load_bg = load_bg, volume_rendering=volume_rendering)
 
     self.active_specimen = target_specimen
 
@@ -723,6 +727,28 @@ class Specimen():
         seg_node.GetDisplayNode().SetSegmentOpacity2DOutline(seg_id,1)
     
   
+  def start_volume_rendering(self, autoremove = True):
+    logic = slicer.modules.volumerendering.logic()
+    displayNode = logic.CreateVolumeRenderingDisplayNode()
+    displayNode.UnRegister(logic)
+    slicer.mrmlScene.AddNode(displayNode)
+    self.node_dict[self.mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
+    logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.mask_path])
+    self.volume_rendering_node = displayNode  
+    self.volume_rendering_roi = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
+
+    slicer.app.processEvents() 
+  
+    layoutManager = slicer.app.layoutManager()
+    threeDWidget = layoutManager.threeDWidget(0)
+    threeDView = threeDWidget.threeDView()
+    threeDView.resetFocalPoint()
+    
+    if autoremove:
+        for r in self.volume_rendering_roi:
+            slicer.mrmlScene.RemoveNode(r)
+        self.volume_rendering_roi = []
+  
   def load_or_init_segement(self, path, name, segmentation_node, default_mask_node):
     print(f"Loading '{name}'")
     try:
@@ -738,7 +764,7 @@ class Specimen():
       slicer.mrmlScene.RemoveNode(label_dummy)
       segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(empty,name)
   
-  def load(self,load_bg = True):
+  def load(self,load_bg = True, volume_rendering = True):
     print(f"loading specimen {self.ID}")
     
     print(self.bg_path)
@@ -804,6 +830,9 @@ class Specimen():
       # slicer.util.setSliceViewerLayers(background=bg_node,foreground=mask_node,foregroundOpacity=0.0)
 
     self.customize_workplace()
+    
+    if volume_rendering:
+      self.start_volume_rendering()
 
 
   def save(self):
