@@ -14,16 +14,17 @@ from slicer.util import VTKObservationMixin
 
 
 
-rel_paths = False
+rel_paths = True
 stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet"
-current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet"
+current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/batch03"
+# current_data_path = "/fast_storage/piglet/batch02"
 # current_data_path = stored_nas_path
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
 __study_dir__ =  os.path.join(current_data_path,"segmentation")
 
-enable_volume_rendering = True
+enable_volume_rendering = False
 
 
 segment_names = ["body","skeleton","earring_L", "earring_R", "bone_1","bone_2"]
@@ -595,6 +596,8 @@ class PigletSegmentorLogic(ScriptedLoadableModuleLogic):
       return
 
     self.active_specimen.save()
+    qt.QApplication.processEvents()
+    self.info_message_box("Save complete. You can safely close the specimen.")
 
   def save_db(self):
     _storageNode = self.dbTable.CreateDefaultStorageNode()
@@ -784,6 +787,9 @@ class Specimen():
       # if segmentation file exists -> load it
       print("loading previous segmentation...")
       segmentationNode = slicer.util.loadSegmentation(self.segment_path)
+      
+      qt.QApplication.processEvents()
+      
       if load_bg:
         segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.bg_path])
       else:
@@ -807,6 +813,8 @@ class Specimen():
       else:
         segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.node_dict[self.mask_path])  
 
+      qt.QApplication.processEvents()
+      
       print("initializing new segmentation...")
       m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(mask_node)
       s = segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(m_img,"mask", [1,1,1])
@@ -818,6 +826,7 @@ class Specimen():
 
       for sn in segment_names:
         self.load_or_init_segement(self.get_img_path(sn), sn, segmentationNode, mask_node)
+        qt.QApplication.processEvents()
 
 
     self.node_dict[self.segment_path] = segmentationNode
@@ -876,8 +885,10 @@ def batch_exporter():
         if not specimen.db_info["done"]=='1':
             continue
         #open specimen
-        slicer.modules.PigletSegmentorWidget.logic.load_specimen(sid,load_bg = False)
+        slicer.modules.PigletSegmentorWidget.logic.load_specimen(sid,load_bg = False,volume_rendering = False)
 
+        qt.QApplication.processEvents()
+        
         segmentation_node = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode").GetItemAsObject(0)
 
         volume = specimen.node_dict[specimen.mask_path]
@@ -888,6 +899,8 @@ def batch_exporter():
             labelmap_node = slicer.vtkMRMLLabelMapVolumeNode()
             segment_ID = segmentation_node.GetSegmentation().GetSegmentIdBySegmentName(seg_name)
             segment = segmentation_node.GetSegmentation().GetSegment(segment_ID)
+            
+            qt.QApplication.processEvents()
             
             if isinstance(segment, type(None)):
                     print(f"segment {seg_name} not exists.")
@@ -905,9 +918,19 @@ def batch_exporter():
             myStorageNode.SetFileName(out_file)
             myStorageNode.WriteData(labelmap_node)
             print(f"Saving {out_file}")
-            slicer.mrmlScene.RemoveNode(myStorageNode)
-            slicer.mrmlScene.RemoveNode(labelmap_node)
+            try:
+                slicer.mrmlScene.RemoveNode(labelmap_node)
+            except Exception as e:
+                print(e)
+            
+            # try:
+            #     slicer.mrmlScene.RemoveNode(myStorageNode)
+            # except Exception as e:
+            #     print(e)
+            
+            qt.QApplication.processEvents()            
 
 
         #close specimen
         slicer.modules.PigletSegmentorWidget.logic.close_active_specimen(True)
+        qt.QApplication.processEvents()
