@@ -20,7 +20,7 @@ multiple_batch = True # batch data is stored in the 'current data path'/batch_[0
 # while the db csv has a 'batch' column. db csv and preseg csv contains all batches
 
 stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet"
-current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/batch03"
+current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/segmentation"
 # current_data_path = "/fast_storage/piglet/batch02"
 # current_data_path = stored_nas_path
 
