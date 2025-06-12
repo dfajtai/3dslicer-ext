@@ -317,7 +317,7 @@ class PigletSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     tbl.clear()
     tbl.clearContents()
 
-    db_info_filter = ["ID", "done", "batch"]
+    db_info_filter = ["ID","batch", "done"]
     
     tbl.setColumnCount(len(db_info_filter))
     tbl.setRowCount(len(IDs))
@@ -681,8 +681,11 @@ class Specimen():
 
   @property
   def slicer_out_dir(self):
-    return os.path.join(self.study_dir,self.ID)
-  
+    if multiple_batch:
+      return os.path.join(self.study_dir,f'batch_{str(self.batch).zfill(2)}',self.ID)
+    else:
+      return os.path.join(self.study_dir,self.ID)
+
   @property
   def batch_export_dir(self):
     if multiple_batch:
