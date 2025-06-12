@@ -20,8 +20,8 @@ multiple_batch = True # batch data is stored in the '__study_dir__'/batch_[01..N
 # while the db csv has a 'batch' column. db csv and preseg csv contains all batches
 
 stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet"
-current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet"
-# current_data_path = "/fast_storage/piglet/batch02"
+#current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet"
+current_data_path = "/fast_storage/piglet/batch_3_4"
 # current_data_path = stored_nas_path
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
@@ -317,7 +317,7 @@ class PigletSegmentorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     tbl.clear()
     tbl.clearContents()
 
-    db_info_filter = ["ID", "done"]
+    db_info_filter = ["ID", "done", "batch"]
     
     tbl.setColumnCount(len(db_info_filter))
     tbl.setRowCount(len(IDs))
