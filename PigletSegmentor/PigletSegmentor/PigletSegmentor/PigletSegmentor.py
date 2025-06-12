@@ -15,6 +15,10 @@ from slicer.util import VTKObservationMixin
 
 
 rel_paths = True
+
+multiple_batch = True # batch data is stored in the 'current data path'/batch_[01..NN]/.. 
+# while the db csv has a 'batch' column. db csv and preseg csv contains all batches
+
 stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet"
 current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/batch03"
 # current_data_path = "/fast_storage/piglet/batch02"
@@ -520,10 +524,12 @@ class PigletSegmentorLogic(ScriptedLoadableModuleLogic):
     db_ID = [self.dbDictList[i].get("ID") for i in range(len(self.dbDictList))]
     preseg_ID = [self.presegDictList[i].get("ID") for i in range(len(self.presegDictList))]
     self.ID_list = sorted(list(set(db_ID).intersection(set(preseg_ID))))
+    batch_dict = dict([(self.dbDictList[i].get("ID"),self.dbDictList[i].get("batch")) for i in range(len(self.dbDictList))])
 
     print(self.ID_list)
     print(f"Initializing {len(self.ID_list)} specimens")
-    self.Specimens = dict([(s, Specimen(ID = s, 
+    self.Specimens = dict([(s, Specimen(ID = s,
+                                        batch = batch_dict.get(s),
                                         dbDictList = self.dbDictList, 
                                         presegDictList= self.presegDictList, 
                                         study_dir = self._study_dir_)) for s in self.ID_list])
@@ -631,8 +637,9 @@ class PigletSegmentorTest(ScriptedLoadableModuleTest):
 
 
 class Specimen():
-  def __init__(self, ID, dbDictList, presegDictList, study_dir):
+  def __init__(self, ID, batch, dbDictList, presegDictList, study_dir):
     self.ID = ID
+    self.batch = batch
     self.db_info = {}
     self.preseg_paths = {}
     self.study_dir = study_dir
@@ -678,13 +685,21 @@ class Specimen():
   
   @property
   def batch_export_dir(self):
-    return os.path.join(self.study_dir,'batch_export',self.ID)
+    if multiple_batch:
+      return os.path.join(self.study_dir,f'batch_{str(self.batch).zfill(2)}_export',self.ID)
+    else:
+      return os.path.join(self.study_dir,'batch_export',self.ID)
   
   def get_img_path(self, img_name):
+        
     if not self.preseg_paths.get(img_name):
       img_path =  os.path.join(self.slicer_out_dir,f"{self.ID}-{img_name}.nii.gz")
     else:
       img_path = self.preseg_paths.get(img_name)
+    
+    if multiple_batch:
+      img_path = os.path.join(f"batch_{str(int(self.batch)).zfill(2)}",img_path)  
+    
     return  fix_path(str(img_path).replace(2*os.sep,os.sep))
     
   def update_done(self,table):
@@ -914,7 +929,7 @@ def batch_exporter():
             slicer.vtkSlicerSegmentationsModuleLogic.ExportSegmentsToLabelmapNode(segmentation_node, segments, labelmap_node, volume)
             
             myStorageNode = labelmap_node.CreateDefaultStorageNode()
-            out_file = os.path.join(specimen.slicer_out_dir,f"{sid}-{seg_name}.nii.gz")
+            out_file = os.path.join(specimen.batch_export_dir,f"{sid}-{seg_name}.nii.gz")
             myStorageNode.SetFileName(out_file)
             myStorageNode.WriteData(labelmap_node)
             print(f"Saving {out_file}")
