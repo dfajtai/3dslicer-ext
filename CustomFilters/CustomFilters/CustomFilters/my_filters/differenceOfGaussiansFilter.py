@@ -9,7 +9,7 @@ import math
 from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
-from .myPlotter import addOrUpdateHistogram
+from .simplePlotter import addOrUpdateHistogram
 
 
 class DoGFilter(CustomFilter):

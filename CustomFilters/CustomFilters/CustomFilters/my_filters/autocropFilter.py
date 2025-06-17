@@ -9,7 +9,8 @@ import slicer
 from numpy.lib.stride_tricks import as_strided
 
 from .customFilter import CustomFilter, CustomFilterUI, sitk, sitkUtils
-from .myPlotter import addOrUpdateHistogram
+from .simplePlotter import addOrUpdateHistogram
+from .adjustablePlotter import addOrUpdateControllableHistogram
 
 
 class AutocropFilter(CustomFilter):
@@ -171,6 +172,8 @@ class AutocropFilter(CustomFilter):
       print("Please select an input volume.")
       raise ReferenceError("Inputs not initialized.")
     input_img_node_name = self.UI.inputs[0].GetName()
+    
+    addOrUpdateControllableHistogram(self.UI,input_image=self.UI.inputs[0])
     
     addOrUpdateHistogram(self, self.UI,self.UI.plot_container,input_image = self.UI.inputs[0])
     self.UI.plot_container.visible = True

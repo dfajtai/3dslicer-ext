@@ -45,7 +45,7 @@ def addOrUpdateHistogram(filter, filter_ui, plot_widget, input_image, bins = 50,
   else:
     slicer.util.updateTableFromArray(filter_ui.histogram_table_node, (count,val))
   
-  filter_ui.histogram_table_node.GetTable().GetColumn(0).SetName("Count")
+  filter_ui.histogram_table_node.GetTable().GetColumn(0).SetName(f"{'' if not logscale else 'log '}Count")
   filter_ui.histogram_table_node.GetTable().GetColumn(1).SetName("Intensity")
   
   if not hasattr(filter_ui,"histogram_plot_series_node"):
@@ -57,7 +57,7 @@ def addOrUpdateHistogram(filter, filter_ui, plot_widget, input_image, bins = 50,
   
   filter_ui.histogram_plot_series_node.SetAndObserveTableNodeID(filter_ui.histogram_table_node.GetID())
   filter_ui.histogram_plot_series_node.SetXColumnName("Intensity")
-  filter_ui.histogram_plot_series_node.SetYColumnName("Count")
+  filter_ui.histogram_plot_series_node.SetYColumnName(f"{'' if not logscale else 'log '}Count")
   
   filter_ui.histogram_plot_series_node.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeScatterBar)
   filter_ui.histogram_plot_series_node.SetLineStyle(slicer.vtkMRMLPlotSeriesNode.LineStyleSolid)
