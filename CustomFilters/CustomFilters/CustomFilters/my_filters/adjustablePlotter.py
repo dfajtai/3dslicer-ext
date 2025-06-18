@@ -63,18 +63,23 @@ class ControllableHistogram:
     if old_tables.GetNumberOfItems()>0:
       for i in old_tables.NewIterator():
         slicer.mrmlScene.removeNode(i)
+  
+  def clear_table(self,name):
+    if self.tables.get(name):
+      slice.mrmlScene.RemoveNode(self.tables.get(name))
+      
         
-  def create_table(self,sub_name = ""):
-    full_name = f"{self.table_name}_{sub_name}"
-    if self.tables.get(sub_name):
-      slice.mrmlScene.RemoveNode(self.tables.get(sub_name))
+  def create_table(self,name = ""):
+    full_name = f"{self.table_name}_{name}"
+    if self.tables.get(name):
+      slice.mrmlScene.RemoveNode(self.tables.get(name))
     else:
       old_node = slicer.mrmlScene.GetFirstNodeByName(full_name)
       if old_node:
         slice.mrmlScene.RemoveNode(old_node)
       
     new_table = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode",full_name)
-    self.tables[sub_name] = new_table
+    self.tables[name] = new_table
 
     return new_table
   
@@ -85,19 +90,27 @@ class ControllableHistogram:
       for i in old_series.NewIterator():
         slicer.mrmlScene.removeNode(i)
         
-  def create_series(self,sub_name = ""):
-    full_name = f"{self.series_name}_{sub_name}"
-    if self.series.get(sub_name):
-      slice.mrmlScene.RemoveNode(self.series.get(sub_name))
+  def clear_series(self,name):
+    if self.series.get(name):
+      slice.mrmlScene.RemoveNode(self.series.get(name))
+        
+  def create_series(self,name = ""):
+    full_name = f"{self.series_name}_{name}"
+    if self.series.get(name):
+      slice.mrmlScene.RemoveNode(self.series.get(name))
     else:
       old_node = slicer.mrmlScene.GetFirstNodeByName(full_name)
       if old_node:
         slice.mrmlScene.RemoveNode(old_node)
     
     new_series = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode",full_name)
-    self.series[sub_name] = new_series
+    self.series[name] = new_series
     
     return new_series
+  
+  def update_series(self,name):
+    #TODO update series
+    pass
   
   def clear_chart(self):
     if self.plot_chart_node:
@@ -162,9 +175,9 @@ class ControllableHistogram:
 
     return count,val
   
-  def update_table(self,histogram_data, sub_name):
+  def update_table(self,histogram_data, name):
     count,val = histogram_data
-    new_table = self.create_table(sub_name=sub_name)
+    new_table = self.create_table(name=name)
     slicer.util.updateTableFromArray(new_table, (count,val))
     
     new_table.GetTable().GetColumn(0).SetName(f"{'' if not self.logscale else 'log '}Count")
@@ -172,10 +185,14 @@ class ControllableHistogram:
     
     return new_table
     
-  def update_histogram(self):
-    tables = {}
-    
+  def update_histogram(self, add_whole_image_histogram = False):
+    """Creates tables form the selected image (and selected segment(s))"""
+       
     if isinstance(self.segmentation_node,slicer.vtkMRMLSegmentationNode):
+      if add_whole_image_histogram:
+        histogram_data = self.calculate_histogram(self.number_of_bins,self.clip_min,self.clip_max)
+        self.update_table(histogram_data=histogram_data,name="")
+      
       # iterate over segments
       
       segmentation = self.segmentation_node.GetSegmentation()
@@ -223,16 +240,47 @@ class ControllableHistogram:
         slicer.app.processEvents()
 
         histogram_data = self.calculate_histogram(self.number_of_bins,clip_min=self.clip_min,clip_max=self.clip_max,mask=mask)
-        self.update_table(histogram_data=histogram_data,sub_name=segment_name)
+        self.update_table(histogram_data=histogram_data,name=segment_name)
       
       slicer.mrmlScene.RemoveNode(new_seg)
       slicer.mrmlScene.RemoveNode(colorTableNode)
-    
+      
     else:
       histogram_data = self.calculate_histogram(self.number_of_bins,self.clip_min,self.clip_max)
-      self.update_table(histogram_data=histogram_data,sub_name="")
+      self.update_table(histogram_data=histogram_data,name="")
+  
+  
+  def add_series_to_chart(self, name):
+    if not isinstance(self.plot_chart_node,slicer.vtkMRMLPlotChartNode):
+      return
+    if isinstance(self.series.get(name),slicer.vtkMRMLPlotSeriesNode):
+      self.plot_chart_node.AddAndObservePlotSeriesNodeID(self.series.get(name).GetID())
+  
+  def remove_all_series_from_chart(self):
+    if not isinstance(self.plot_chart_node,slicer.vtkMRMLPlotChartNode):
+      return
+    self.plot_chart_node.RemoveAllPlotSeriesNodeIDs()
+  
+  def remove_series_form_chart(self,name):
+    if not isinstance(self.plot_chart_node,slicer.vtkMRMLPlotChartNode):
+      return
+    if isinstance(self.series.get(name),slicer.vtkMRMLPlotSeriesNode):
+      self.plot_chart_node.RemovePlotSeriesNodeID(self.series.get(name).GetID())
 
-  def update_plot(self):
+    
+  def update_histogram_plots(self, visible_names = None):    
+    """Creates series form table(s), plots series."""
+    if not isinstance(self.plot_chart_node,slicer.vtkMRMLPlotChartNode):
+      return  
+  
+    if visible_names is None:
+      visible_names = list(self.tables.keys())
+    assert isinstance(visible_names,list)
+    unwanted_names = []
+    
+    current_count = 
+    
+    
     #TODO create series from tables, update chart... or so
     pass
 
