@@ -173,7 +173,7 @@ class AutocropFilter(CustomFilter):
       raise ReferenceError("Inputs not initialized.")
     input_img_node_name = self.UI.inputs[0].GetName()
     
-    addOrUpdateControllableHistogram(self.UI,input_image=self.UI.inputs[0])
+    addOrUpdateControllableHistogram(self.UI,input_image=self.UI.inputs[0], widget_list=self.UI.widgets)
     
     addOrUpdateHistogram(self, self.UI,self.UI.plot_container,input_image = self.UI.inputs[0])
     self.UI.plot_container.visible = True
