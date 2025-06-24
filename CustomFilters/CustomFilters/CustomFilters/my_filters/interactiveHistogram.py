@@ -8,8 +8,9 @@ import sitkUtils
 import SimpleITK as sitk
 
 
-class ControllableHistogram:
-  def __init__(self, ui, input_image, widget_list, container= None, segmentation_node = None, segment_names = None):
+class InteractiveHistogram:  
+  def __init__(self, ui, input_image, widget_list, container= None, segmentation_node = None, segment_names = None,
+               use_masks = False, show_total = True):
     if not isinstance(input_image,slicer.vtkMRMLScalarVolumeNode):
      raise TypeError("Invalid input image")
   
@@ -32,6 +33,8 @@ class ControllableHistogram:
     self.number_of_bins = 50
     self.clip_min = None
     self.clip_max = None
+    self.show_total = show_total
+    self.use_masks = use_masks
     
     self.gui_initialized = False
     
@@ -42,10 +45,16 @@ class ControllableHistogram:
     
     self.control_group = None
     self.input_vol_selector = None
-    self.input_seg_selector = None
     self.clip_range_control = None
     self.bin_control = None
     self.logscale_control = None
+    self.use_masks_control = None
+    
+    
+    self.segment_selector_block = None
+    self.segment_selector = None
+    self.segment_list_control = None
+    self.show_total_control = None
       
     self.image_min = None
     self.image_max = None
@@ -54,8 +63,9 @@ class ControllableHistogram:
     self.series = {}
     
     # clear data...
-    self.remove_all_tables()
     self.remove_all_series()
+    self.remove_all_tables()
+    
   
   @property
   def input_image_name(self):
@@ -76,6 +86,23 @@ class ControllableHistogram:
   def chart_name(self):
     """Chart name"""
     return f"{self.input_image_name}_hist_chart"
+  
+  
+  @property
+  def x_axis_label(self):
+    return "Voxel Val."
+  
+  @property
+  def noscale_y_axis_label(self):
+    return "Count"
+  
+  @property
+  def logscale_y_axis_label(self):
+    return "log Count"
+  
+  @property
+  def y_axis_label(self):
+    return self.logscale_y_axis_label if self.logscale else self.noscale_y_axis_label
   
   
   def table_name_with_subname(self,subname = ""):
@@ -111,10 +138,7 @@ class ControllableHistogram:
     if name.startswith("_"):
       name = name[1:] if len(name)>1 else ""
     
-    return name
-  
-  
-       
+    return name      
   
   def create_ui(self, add_group_box = True):
     """Creates the UI"""
@@ -124,7 +148,7 @@ class ControllableHistogram:
       
       self.container = qt.QFormLayout()
       if add_group_box:
-        group_box = qt.QGroupBox("Adjustable histogram")
+        group_box = qt.QGroupBox("Interactive histogram")
         group_box.setLayout(self.container)
         self.widget_list.append(group_box)
         self.ui.parent.addRow(group_box)
@@ -150,19 +174,63 @@ class ControllableHistogram:
     self.control_group = ctk.ctkCollapsibleGroupBox()
     self.container.addRow(self.control_group)
     
-    self.control_group .setTitle("Plot controls")
+    self.control_group.setTitle("Plot controls")
     
     self.input_vol_selector = slicer.qMRMLNodeComboBox()
     self.input_vol_selector.setMRMLScene(slicer.mrmlScene)
     self.input_vol_selector.nodeTypes = ('vtkMRMLScalarVolumeNode',)
+    self.input_vol_selector.setCurrentNode(self.input_image)   
+    
+    control_group_layout.addRow(qt.QLabel("Input image"))
+    control_group_layout.addRow(self.input_vol_selector)
     
 
     self.clip_range_control = ctk.ctkRangeWidget()
+    control_group_layout.addRow(qt.QLabel("Histogram range"))
+    control_group_layout.addRow(self.clip_range_control)
+    
+    control_group_layout.addRow(qt.QLabel("Bin count on range"))
+    self.bin_control = slicer.qMRMLSliderWidget()
+    self.bin_control.decimals = 0
+    self.bin_control.minimum = 1
+    self.bin_control.maximum = 100
+    self.bin_control.value = self.number_of_bins
+    control_group_layout.addRow(self.bin_control)
+    
+    
+    self.logscale_control = qt.QCheckBox("Show counts in log10 scale")
+    self.logscale_control.checked = self.logscale
+    control_group_layout.addRow(self.logscale_control)
+    
+    self.use_masks_control = qt.QCheckBox("Use segments as masks")
+    self.use_masks_control.checked = self.use_masks
+    control_group_layout.addRow(self.use_masks_control)
+    
+    # --> segment selector...
+    self.segment_selector_block = qt.QGroupBox()
+    self.segment_selector_block.setTitle("Segment based settings")
+    self.segment_selector_block.visible = self.use_masks
+    segment_selector_layout = qt.QFormLayout()
+    self.segment_selector_block.setLayout(segment_selector_layout)
+    control_group_layout.addRow(self.segment_selector_block)
+    
+    self.show_total_control = qt.QCheckBox("Show total image histogram")
+    self.show_total_control.checked = self.show_total
+    segment_selector_layout.addRow(self.show_total_control)
+        
+    self.segment_selector = slicer.qMRMLSegmentSelectorWidget()
+    self.segment_selector.setMRMLScene(slicer.mrmlScene)
+    segment_selector_layout.addRow(self.segment_selector)
+    
+    add_segment_btn = qt.QPushButton()
+    add_segment_btn.text = "Add segment"            
+    segment_selector_layout.addRow(add_segment_btn)
+    
     
     self.control_group.setLayout(control_group_layout)
-  
+    
     # functions
-    def update_volume_min_max(self,caller=None, event=None):
+    def on_input_image_changed(self,caller=None, event=None):
       volume_node = self.input_vol_selector.currentNode()
       image_data = volume_node.GetImageData()
       scalar_range = image_data.GetScalarRange()
@@ -171,14 +239,140 @@ class ControllableHistogram:
 
       self.clip_range_control.minimum = self.image_min
       self.clip_range_control.maximum = self.image_max
+      # self.clip_range_control.minimumValue = max(self.clip_range_control.minimumValue,self.image_min)
+      # self.clip_range_control.maximumValue = min(self.clip_range_control.maximumValue,self.image_max)
+      self.clip_range_control.minimumValue = self.image_min
+      self.clip_range_control.maximumValue = self.image_max
       
-    self.input_vol_selector.connect("currentNodeChanged(vtkMRMLNode*)",lambda x:update_volume_min_max(self))
+      if self.gui_initialized:
+        self.remove_all_series()
+        self.remove_all_tables()
+        self.input_image = volume_node
+        self.update_histogram()
+        self.update_histogram_plots()
         
-    # initialization
-    self.input_vol_selector.setCurrentNode(self.input_image)    
+    
+    def on_add_segment(self):
+      seg_node_id = self.segment_selector.currentNodeID()
+      seg_node = slicer.mrmlScene.GetNodeByID(seg_node_id)
+      if not isinstance(seg_node,slicer.vtkMRMLSegmentationNode):
+        return
+      is_changed = False
+      if self.segmentation_node is None:
+        is_changed = True
+      else:
+        if isinstance(self.segmentation_node,slicer.vtkMRMLSegmentationNode):
+          if self.segmentation_node.GetID()!=seg_node.GetID():
+            is_changed = True
+        else:
+          is_changed = True
+          
+      self.segmentation_node = seg_node
+      if self.segment_names is None:
+        self.segment_names = []
+        is_changed = True
+      
+      
+      segment_id =  self.segment_selector.currentSegmentID()
+      segment_node = seg_node.GetSegmentation().GetSegment(segment_id)
+      segment_name = segment_node.GetName()
+      
+      if segment_name not in self.segment_names:
+        self.segment_names.append(segment_name)
+        is_changed = True
+        
+      if is_changed: on_segment_change(self)
+    
+    def on_remove_segment(self):
+      seg_node_id = self.segment_selector.currentNodeID()
+      seg_node = slicer.mrmlScene.GetNodeByID(seg_node_id)
+      if not isinstance(seg_node,slicer.vtkMRMLSegmentationNode):
+        return
+      
+      segment_id =  self.segment_selector.currentSegmentID()
+      segment_node = seg_node.GetSegmentation().GetSegment(segment_id)
+      segment_name = segment_node.GetName()
+      
+      is_changed = False
+      
+      if self.segment_names is None:
+        return
+      
+      if isinstance(self.segment_names, list):
+        if segment_name in self.segment_names:
+          is_changed = True
+      self.segment_names.remove(segment_name)
+      
+      if is_changed: on_segment_change(self)
+      
+    
+    def clear_all_segments(self):
+      self.segmentation_node = None
+      self.segment_names = None
+      on_segment_change(self)
+                      
+    
+    def on_show_total_changed(self):
+      self.show_total = self.show_total_control.checked
+      on_segment_change(self)
+      
+                      
+    def on_segment_change(self):
+      if self.gui_initialized:
+        self.update_histogram()
+        self.update_histogram_plots()
+        
+    def on_clip_change(self):
+      self.clip_min = self.clip_range_control.minimumValue
+      self.clip_max = self.clip_range_control.maximumValue
+
+      if self.gui_initialized:
+        self.update_histogram()
+        self.update_histogram_plots()
+      
+      
+    def on_logscale_change(self):
+      self.logscale = self.logscale_control.checked
+      
+      if self.gui_initialized:
+        self.update_histogram_plots() 
+    
+    
+    def on_use_masks_change(self):
+      self.use_masks = self.use_masks_control.checked
+      self.segment_selector_block.visible = self.use_masks
+      
+      if self.use_masks == False:
+        self.show_total=True
+      
+      self.show_total_control.checked = self.show_total
+      
+      clear_all_segments(self)
+      
+    
+    def on_bincount_change(self):
+      self.number_of_bins = int(self.bin_control.value)
+      
+      if self.gui_initialized:
+        self.update_histogram()
+        self.update_histogram_plots()
+      
+      
+    self.input_vol_selector.connect("currentNodeChanged(vtkMRMLNode*)",lambda x:on_input_image_changed(self))
+    self.logscale_control.connect("toggled(bool)",lambda x: on_logscale_change(self))
+    self.use_masks_control.connect("toggled(bool)",lambda x: on_use_masks_change(self))
+    self.bin_control.connect("valueChanged(double)", lambda x: on_bincount_change(self))
+    self.clip_range_control.connect("valuesChanged(double,double)", lambda x: on_clip_change(self))
+    add_segment_btn.connect('clicked(bool)',lambda x:on_add_segment(self))
+    self.show_total_control.connect("toggled(bool)",lambda x: on_show_total_changed(self))
+    
+    # initialization     
     
     self.gui_initialized = True
-  
+
+    # trigger events
+    on_input_image_changed(self)
+    
   # TABLES
   def remove_all_tables(self):
     """Removes all tables from SCENE"""
@@ -187,18 +381,24 @@ class ControllableHistogram:
       for i in old_tables.NewIterator():
         slicer.mrmlScene.removeNode(i)
     self.tables = {}
+        
     
   def remove_table(self,name):
     """Removes a given table form SCENE"""
     if self.tables.get(name):
-      slice.mrmlScene.RemoveNode(self.tables.get(name))
+      slicer.mrmlScene.RemoveNode(self.tables.get(name))
       
         
-  def create_table(self,subname = "", remove=False):
+  def create_table(self,subname = "", use_full_name = False):
     """Creates a new table"""
     
-    def _create_table(subname,full_name):
-      table_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode",full_name)
+    def _create_table(subname, full_name):
+      if use_full_name:
+        table_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode", full_name)
+        self.tables[subname] = table_node
+        return table_node
+      
+      table_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode", subname)
       self.tables[subname] = table_node
       return table_node
     
@@ -210,11 +410,8 @@ class ControllableHistogram:
       table_node = slicer.mrmlScene.GetFirstNodeByName(full_name)
     
     if isinstance(table_node,slicer.vtkMRMLTableNode):
-      if remove:
-        slice.mrmlScene.RemoveNode(table_node)
-        table_node = _create_table(subname=subname,full_name=full_name)
-    else:
-      table_node = _create_table(subname=subname,full_name=full_name)
+      slicer.mrmlScene.RemoveNode(table_node)
+    table_node = _create_table(subname=subname,full_name=full_name)
 
     return table_node
   
@@ -228,6 +425,8 @@ class ControllableHistogram:
       for i in old_series.NewIterator():
         slicer.mrmlScene.removeNode(i)
     self.series = {}
+    
+    self.remove_all_series_from_chart()
   
   def remove_series(self,series):
     """Removes a given plot series form SCENE"""
@@ -236,7 +435,7 @@ class ControllableHistogram:
 
     else:
       name = series.GetName()
-      slice.mrmlScene.RemoveNode()
+      slicer.mrmlScene.RemoveNode()
       del(self.series[name])
 
   
@@ -246,34 +445,35 @@ class ControllableHistogram:
       return
     name = self.extract_subname(name)
     if self.series.get(name):
-      slice.mrmlScene.RemoveNode(self.series.get(name))
+      slicer.mrmlScene.RemoveNode(self.series.get(name))
       del(self.series[name])
   
     
-  def create_or_update_series(self,subname = "",remove = False):
+  def create_or_update_series(self,subname = "", use_full_name = False):
     """Creates or updates a plot series with a given subname"""
     full_name = self.series_name_with_subname(subname)
     
     def create_series(subname,full_name):
-      series_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode",full_name)
+      if use_full_name:
+        series_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode",full_name)
+        self.series[subname] = series_node
+        return series_node
+    
+      series_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode",subname)
       self.series[subname] = series_node
       return series_node
-    
+
     if self.series.get(subname):
       series_node = self.series.get(subname)
     else:
       series_node = slicer.mrmlScene.GetFirstNodeByName(full_name)
       
     if isinstance(series_node, slicer.vtkMRMLPlotSeriesNode):
-      if remove:
-        slice.mrmlScene.RemoveNode(series_node)
-        series_node = create_series(subname=subname, full_name=full_name)
-    else:
-      series_node = create_series(subname=subname, full_name=full_name)
+      slicer.mrmlScene.RemoveNode(series_node)
+    series_node = create_series(subname=subname, full_name=full_name)
       
     self.update_series(series_node,subname)
-    self.set_initial_series_parameters(series_node,self.logscale)
-      
+          
     return series_node 
   
   def update_series(self,series,subname):
@@ -286,6 +486,13 @@ class ControllableHistogram:
     if isinstance(table_node,slicer.vtkMRMLTableNode):
       series.SetAndObserveTableNodeID(table_node.GetID())
       
+      series.SetXColumnName(self.x_axis_label)
+      series.SetYColumnName(self.y_axis_label)
+      
+      series.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeScatter)
+      series.SetLineStyle(slicer.vtkMRMLPlotSeriesNode.LineStyleSolid)
+      series.SetMarkerStyle(slicer.vtkMRMLPlotSeriesNode.MarkerStyleNone)  
+      
     return series
   
   
@@ -297,7 +504,7 @@ class ControllableHistogram:
     else:
       old_node = slicer.mrmlScene.GetFirstNodeByName(self.chart_name)
       if old_node:
-        slice.mrmlScene.RemoveNode(old_node)
+        slicer.mrmlScene.RemoveNode(old_node)
   
   def create_chart(self):
     """Creates the chart"""
@@ -309,13 +516,14 @@ class ControllableHistogram:
     """Calculates histogram data wihtout mask"""
     
     data = slicer.util.arrayFromVolume(self.input_image)
-    if (clip_min is not None) or (clip_max is not None): 
-      data = np.clip(data,clip_min,clip_max)
+    if (clip_min is not None) or (clip_max is not None):
+      clip_min = - np.inf if clip_min is None else clip_min
+      clip_max =  np.inf if clip_max is None else clip_max
+      data = data[(data>=clip_min) & (data<=clip_max)]
     count, val = np.histogram(data, bins=number_of_bins)
-    if self.logscale:
-      count = np.clip(np.log10(count),0,np.inf)
+    logcount = np.log10(count,where=count>0)
 
-    return count,val
+    return val,count,logcount
   
   def calculate_histogram_with_mask(self, mask, number_of_bins,clip_min=None, clip_max = None):
     """Calculates histogram data INSIDE a mask"""
@@ -324,34 +532,39 @@ class ControllableHistogram:
     data = slicer.util.arrayFromVolume(self.input_image)
     assert np.allclose(mask.shape,data.shape)
     
-    if (clip_min is not None) or (clip_max is not None): 
-      data = np.clip(data,clip_min,clip_max)
-    count, val = np.histogram(data[mask==1], bins=number_of_bins)
-    if self.logscale:
-      count = np.clip(np.log10(count),0,np.inf)
+    _mask = np.ones_like(data,dtype=bool)
+    
+    if (clip_min is not None) or (clip_max is not None):
+      clip_min = - np.inf if clip_min is None else clip_min
+      clip_max =  np.inf if clip_max is None else clip_max
+      _mask[(data<clip_min) | (data>clip_max)] = False
+      
+    count, val = np.histogram(data[(mask==1)&(_mask)], bins=number_of_bins)
+    logcount = np.log10(count,where=count>0)
 
-    return count,val
+    return val,count,logcount
   
   def update_table(self,histogram_data, subname):
     """Updates a given table (with a histogram data)"""
     
-    count,val = histogram_data
+    val,count,logcount = histogram_data
     new_table = self.create_table(subname=subname)
-    slicer.util.updateTableFromArray(new_table, (count,val))
+    slicer.util.updateTableFromArray(new_table, (val, count, logcount))
     
-    new_table.GetTable().GetColumn(0).SetName(f"{'' if not self.logscale else 'log '}Count")
-    new_table.GetTable().GetColumn(1).SetName("Voxel Val.")
+    new_table.GetTable().GetColumn(0).SetName(self.x_axis_label)
+    new_table.GetTable().GetColumn(1).SetName(self.noscale_y_axis_label)
+    new_table.GetTable().GetColumn(2).SetName(self.logscale_y_axis_label)
     
     return new_table
     
-  def update_histogram(self, add_whole_image_histogram = False):
+  def update_histogram(self):
     """Creates tables form the selected image (and selected segment(s))"""
        
-    if isinstance(self.segmentation_node,slicer.vtkMRMLSegmentationNode):
-      if add_whole_image_histogram:
+    if isinstance(self.segmentation_node,slicer.vtkMRMLSegmentationNode) and self.use_masks:
+      if self.show_total:
         histogram_data = self.calculate_histogram(self.number_of_bins,self.clip_min,self.clip_max)
-        self.update_table(histogram_data=histogram_data,subname="")
-      
+        self.update_table(histogram_data=histogram_data,subname="total")
+        
       # iterate over segments
       
       segmentation = self.segmentation_node.GetSegmentation()
@@ -372,7 +585,7 @@ class ControllableHistogram:
         if segment_name not in self.segment_names:
             continue
           
-        print(f"Processign segment '{segment_name}'")
+        # print(f"Processign segment '{segment_name}'")
                     
         segmentId = segmentation.GetSegmentIdBySegmentName(segment_name)
         labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
@@ -394,18 +607,18 @@ class ControllableHistogram:
         
         slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
         
-        print(f"Segement '{segment_name}' processed")
+        # print(f"Segement '{segment_name}' processed")
         slicer.app.processEvents()
 
-        histogram_data = self.calculate_histogram_with_mask(self.number_of_bins,clip_min=self.clip_min,clip_max=self.clip_max,mask=mask)
-        self.update_table(histogram_data=histogram_data,subname=segment_name)
+        histogram_data = self.calculate_histogram_with_mask(number_of_bins = self.number_of_bins,clip_min=self.clip_min,clip_max=self.clip_max,mask=mask)
+        self.update_table(histogram_data=histogram_data,subname=f"{segment_name}")
       
       slicer.mrmlScene.RemoveNode(new_seg)
       slicer.mrmlScene.RemoveNode(colorTableNode)
       
     else:
       histogram_data = self.calculate_histogram(self.number_of_bins,self.clip_min,self.clip_max)
-      self.update_table(histogram_data=histogram_data,subname="")
+      self.update_table(histogram_data=histogram_data,subname="total")
   
   
   def add_series_to_chart(self, subname):
@@ -433,20 +646,23 @@ class ControllableHistogram:
       if isinstance(node,slicer.vtkMRMLPlotSeriesNode):
         self.plot_chart_node.RemovePlotSeriesNodeID(node.GetID())
 
-  @staticmethod
-  def set_initial_series_parameters(series_node, logscale = False):
-    """Initializes plto series graphical settigns and so"""
-    if not isinstance(series_node,slicer.vtkMRMLPlotSeriesNode ):
-      return
-  
     
   def update_histogram_plots(self, visible_names = None):    
     """Creates plot series form table(s), adds visible plot series to the chart"""
     if not isinstance(self.plot_chart_node,slicer.vtkMRMLPlotChartNode):
       self.create_chart()
-  
+
+    self.remove_all_series_from_chart()
+    
     if visible_names is None:
-      visible_names = list(self.tables.keys())
+      visible_names = []
+      
+      if self.show_total or not self.use_masks:
+        visible_names.append("total")
+      
+      if self.use_masks and isinstance(self.segment_names,list):
+        visible_names.extend(self.segment_names)
+      # print(visible_names)
       
     assert isinstance(visible_names,list)
     unwanted_subnames = []
@@ -457,16 +673,14 @@ class ControllableHistogram:
         continue
       full_name = series_node.GetName()
       subname = self.extract_subname(full_name)
-      if name not in visible_names:
+      if subname not in visible_names:
         unwanted_subnames.append(subname)
       
     for subname in unwanted_subnames:
       self.remove_series_form_chart(subname=subname)
     
     for name in visible_names:
-      _name = self.extract_subname(name)
-      series = self.create_or_update_series(subname=_name)      
-
+      series = self.create_or_update_series(subname=name)
       self.plot_chart_node.AddAndObservePlotSeriesNodeID(series.GetID())
       # self.add_series_to_chart(_name)
       
@@ -481,10 +695,10 @@ class ControllableHistogram:
     
     self.plot_view_node.SetPlotChartNodeID(self.plot_chart_node.GetID())
     self.plot_widget.setMRMLPlotViewNode(self.plot_view_node)
+    
 
 
-def addOrUpdateControllableHistogram(ui, input_image, widget_list, container = None):
-  chist = ControllableHistogram(ui=ui,input_image=input_image,widget_list=widget_list,container=container)
-  chist.create_ui()
-  chist.update_histogram()
-  chist.update_histogram_plots()
+def addOrUpdateInteractiveHistogram(ui, input_image, widget_list, container = None):
+  ihist = InteractiveHistogram(ui=ui,input_image=input_image,widget_list=widget_list,container=container)
+  ihist.logscale = True
+  ihist.create_ui()
