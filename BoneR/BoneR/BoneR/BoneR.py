@@ -9,6 +9,10 @@ import ctk
 from qt import QFileDialog
 
 import slicer
+
+import SimpleITK as sitk
+import sitkUtils
+
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
@@ -26,6 +30,9 @@ __study_dir__ =  os.path.join(current_data_path,"manual_segmentation")
 
 enable_volume_rendering = False
 
+
+__copy_mask__ = True
+__load_bg__ = True
 part_count = 10
 part_index_len = 2
 segment_names = [f"part_{str(p+1).zfill(part_index_len)}" for p in range(part_count)]
@@ -444,7 +451,7 @@ class BoneRWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if not self.tbl_selected_ID:
         return
 
-      load_success = self.logic.load_specimen(self.tbl_selected_ID,load_bg=True, volume_rendering=self.volume_rendering)
+      load_success = self.logic.load_specimen(self.tbl_selected_ID,load_bg=__load_bg__, volume_rendering=self.volume_rendering)
       self.ui.btnLoadSelected.enabled = not self.logic.hasActiveSpecimen
       if self.logic.hasActiveSpecimen:
         self.ui.lblActiveSpecimen.text= f"{self.logic.active_specimen.ID}"
@@ -807,7 +814,7 @@ class Specimen():
             slicer.mrmlScene.RemoveNode(r)
         self.volume_rendering_roi = []
   
-  def load_or_init_segement(self, path, name, segmentation_node, default_mask_node):
+  def load_or_init_segement(self, path, name, segmentation_node, default_mask_node, copy_mask = False):
     print(f"Loading '{name}'")
     try:
       _mask_node = slicer.util.loadLabelVolume(path) #load mask
@@ -816,11 +823,42 @@ class Specimen():
       slicer.mrmlScene.RemoveNode(_mask_node)
     except:
       print(f"unable to open {path}")
-      label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-      slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, default_mask_node)
-      empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
-      slicer.mrmlScene.RemoveNode(label_dummy)
-      segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(empty,name)
+      
+      
+      if isinstance(default_mask_node, slicer.vtkMRMLScalarVolumeNode) and copy_mask:
+        # Pull labelmap from Slicer (keep original type)
+        sitk_labelmap = sitkUtils.PullVolumeFromSlicer(default_mask_node.GetID())
+
+        # Convert to binary using thresholding
+        binary_threshold = sitk.BinaryThresholdImageFilter()
+        binary_threshold.SetLowerThreshold(1)  # Smallest label value
+        binary_threshold.SetUpperThreshold(100000)  # Larger than max label
+        binary_threshold.SetInsideValue(1)      # Foreground value
+        binary_threshold.SetOutsideValue(0)     # Background value
+        sitk_mask = binary_threshold.Execute(sitk_labelmap)
+
+        # Proceed with remaining steps...
+        mask_image = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode')
+        sitkUtils.PushVolumeToSlicer(sitk_mask, mask_image)
+        
+        _m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(mask_image)
+
+  
+        # Now add to segmentation
+        segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(_m_img, name)
+        
+        slicer.mrmlScene.RemoveNode(mask_image)
+        del(sitk_labelmap)
+        del(sitk_mask)
+        del(_m_img)
+      else:
+        label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+        slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, default_mask_node)
+        empty = label_dummy.GetImageData().GetPointData().GetScalars().Fill(0)
+
+        segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(empty,name)
+      
+        slicer.mrmlScene.RemoveNode(label_dummy)
   
   def load(self,load_bg = True, volume_rendering = True):
     print(f"loading specimen {self.ID}")
@@ -871,16 +909,16 @@ class Specimen():
       qt.QApplication.processEvents()
       
       print("initializing new segmentation...")
-      m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(mask_node)
-      s = segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(m_img,"mask", [1,1,1])
-      segmentation = segmentationNode.GetSegmentation()
-      displayNode = segmentationNode.GetDisplayNode()
-      _id = segmentation.GetSegmentIdBySegmentName(s)
-      displayNode.SetSegmentVisibility(_id, False)
+      # m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(mask_node)
+      # s = segmentationNode.AddSegmentFromBinaryLabelmapRepresentation(m_img,"mask", [1,1,1])
+      # segmentation = segmentationNode.GetSegmentation()
+      # displayNode = segmentationNode.GetDisplayNode()
+      # _id = segmentation.GetSegmentIdBySegmentName(s)
+      # displayNode.SetSegmentVisibility(_id, False)
      
 
       for sn in segment_names:
-        self.load_or_init_segement(self.get_img_path(sn), sn, segmentationNode, mask_node)
+        self.load_or_init_segement(self.get_img_path(sn), sn, segmentationNode, mask_node, copy_mask=__copy_mask__)
         qt.QApplication.processEvents()
 
 
@@ -890,8 +928,8 @@ class Specimen():
     print("initialization done")
 
     if load_bg:
-      # slicer.util.setSliceViewerLayers(background=bg_node)
-      slicer.util.setSliceViewerLayers(background=bg_node,foreground=mask_node,foregroundOpacity=.5)
+      slicer.util.setSliceViewerLayers(background=bg_node,)
+      # slicer.util.setSliceViewerLayers(background=bg_node,foreground=mask_node,foregroundOpacity=0)
 
     self.customize_workplace()
     
