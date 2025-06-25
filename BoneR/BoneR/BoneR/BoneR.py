@@ -824,33 +824,10 @@ class Specimen():
     except:
       print(f"unable to open {path}")
       
-      
       if isinstance(default_mask_node, slicer.vtkMRMLScalarVolumeNode) and copy_mask:
-        # Pull labelmap from Slicer (keep original type)
-        sitk_labelmap = sitkUtils.PullVolumeFromSlicer(default_mask_node.GetID())
-
-        # Convert to binary using thresholding
-        binary_threshold = sitk.BinaryThresholdImageFilter()
-        binary_threshold.SetLowerThreshold(1)  # Smallest label value
-        binary_threshold.SetUpperThreshold(100000)  # Larger than max label
-        binary_threshold.SetInsideValue(1)      # Foreground value
-        binary_threshold.SetOutsideValue(0)     # Background value
-        sitk_mask = binary_threshold.Execute(sitk_labelmap)
-
-        # Proceed with remaining steps...
-        mask_image = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode')
-        sitkUtils.PushVolumeToSlicer(sitk_mask, mask_image)
-        
-        _m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(mask_image)
-
-  
-        # Now add to segmentation
+        _m_img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(default_mask_node)
         segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(_m_img, name)
         
-        slicer.mrmlScene.RemoveNode(mask_image)
-        del(sitk_labelmap)
-        del(sitk_mask)
-        del(_m_img)
       else:
         label_dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
         slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, label_dummy, default_mask_node)
