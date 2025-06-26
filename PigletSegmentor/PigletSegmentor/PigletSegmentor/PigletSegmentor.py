@@ -16,13 +16,14 @@ from slicer.util import VTKObservationMixin
 
 rel_paths = True
 
-multiple_batch = True # batch data is stored in the '__study_dir__'/batch_[01..NN]/.. 
+multiple_batch = False # batch data is stored in the '__study_dir__'/batch_[01..NN]/.. 
 # while the db csv has a 'batch' column. db csv and preseg csv contains all batches
 
-stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet"
-#current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet"
-current_data_path = "/fast_storage/piglet/batch_3_4"
-# current_data_path = stored_nas_path
+#stored_data_path = "Z:/Projects/ANIMALS/PIGWEB_TNA/piglet/batch03"
+stored_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/batch04"
+current_data_path = "/nas/medicopus_share/Projects/ANIMALS/PIGWEB_TNA/piglet/batch04"
+# current_data_path = "/fast_storage/piglet/batch_3_4"
+# current_data_path = stored_data_path
 
 __database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
 __preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
