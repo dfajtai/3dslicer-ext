@@ -227,6 +227,12 @@ class InteractiveHistogram:
     segment_selector_layout.addRow(add_segment_btn)
     
     
+    
+    remove_segment_btn = qt.QPushButton()
+    remove_segment_btn.text = "Remove segment"            
+    segment_selector_layout.addRow(remove_segment_btn)
+    
+    
     self.control_group.setLayout(control_group_layout)
     
     # functions
