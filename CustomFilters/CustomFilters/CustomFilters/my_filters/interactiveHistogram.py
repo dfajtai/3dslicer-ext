@@ -217,20 +217,35 @@ class InteractiveHistogram:
     self.show_total_control = qt.QCheckBox("Show total image histogram")
     self.show_total_control.checked = self.show_total
     segment_selector_layout.addRow(self.show_total_control)
-        
+    
     self.segment_selector = slicer.qMRMLSegmentSelectorWidget()
     self.segment_selector.setMRMLScene(slicer.mrmlScene)
     segment_selector_layout.addRow(self.segment_selector)
     
-    add_segment_btn = qt.QPushButton()
-    add_segment_btn.text = "Add segment"            
-    segment_selector_layout.addRow(add_segment_btn)
+    # split to 2 part   
+    segment_control_widget = qt.QWidget()
+    segment_control_main_layout = qt.QHBoxLayout(segment_control_widget)
+    segment_control_left_layout = qt.QVBoxLayout() # list
+    segment_control_right_layout = qt.QVBoxLayout() # buttons
+    segment_control_main_layout.addLayout(segment_control_left_layout)
+    segment_control_main_layout.addLayout(segment_control_right_layout)
     
     
+    # add list
+    self.segment_list_control = qt.QListWidget()
+    segment_control_left_layout.addWidget(self.segment_list_control)
     
-    remove_segment_btn = qt.QPushButton()
-    remove_segment_btn.text = "Remove segment"            
-    segment_selector_layout.addRow(remove_segment_btn)
+    # add buttons 
+    add_segment_btn = qt.QPushButton("Add segment")
+    remove_segment_btn = qt.QPushButton("Remove segment")
+    remove_all_segments_btn = qt.QPushButton("Remove all segments")
+    segment_control_right_layout.addStretch()
+    segment_control_right_layout.addWidget(add_segment_btn)
+    segment_control_right_layout.addWidget(remove_segment_btn)
+    segment_control_right_layout.addWidget(remove_all_segments_btn)
+    segment_control_right_layout.addStretch()
+    
+    segment_selector_layout.addRow(segment_control_widget)
     
     
     self.control_group.setLayout(control_group_layout)
@@ -286,19 +301,22 @@ class InteractiveHistogram:
       if segment_name not in self.segment_names:
         self.segment_names.append(segment_name)
         is_changed = True
+        self.segment_list_control.addItem(segment_name)
         
       if is_changed: on_segment_change(self)
     
     def on_remove_segment(self):
-      seg_node_id = self.segment_selector.currentNodeID()
-      seg_node = slicer.mrmlScene.GetNodeByID(seg_node_id)
-      if not isinstance(seg_node,slicer.vtkMRMLSegmentationNode):
+      if not self.gui_initialized:
         return
       
-      segment_id =  self.segment_selector.currentSegmentID()
-      segment_node = seg_node.GetSegmentation().GetSegment(segment_id)
-      segment_name = segment_node.GetName()
+      if not isinstance(self.segment_names, list):
+        return
+      if len(self.segment_names) == 0:
+        return
       
+      selected_item = self.segment_list_control.currentItem()
+      segment_name = selected_item.text()
+            
       is_changed = False
       
       if self.segment_names is None:
@@ -307,15 +325,18 @@ class InteractiveHistogram:
       if isinstance(self.segment_names, list):
         if segment_name in self.segment_names:
           is_changed = True
-      self.segment_names.remove(segment_name)
+          self.segment_names.remove(segment_name)
+          row = self.segment_list_control.row(selected_item)
+          self.segment_list_control.takeItem(row)
       
       if is_changed: on_segment_change(self)
       
-    
     def clear_all_segments(self):
       self.segmentation_node = None
       self.segment_names = None
-      on_segment_change(self)
+      self.segment_list_control.clear()
+      on_segment_change(self,clear=True)
+      
                       
     
     def on_show_total_changed(self):
@@ -323,10 +344,19 @@ class InteractiveHistogram:
       on_segment_change(self)
       
                       
-    def on_segment_change(self):
+    def on_segment_change(self,clear = False):
       if self.gui_initialized:
         self.update_histogram()
         self.update_histogram_plots()
+        if not clear:
+          return
+        
+        self.segment_list_control.clear()
+        
+        if isinstance(self.segment_names, list):
+          for s in self.segment_names:
+            self.segment_list_control.addItem(s)
+        
         
     def on_clip_change(self):
       self.clip_min = self.clip_range_control.minimumValue
@@ -370,6 +400,8 @@ class InteractiveHistogram:
     self.bin_control.connect("valueChanged(double)", lambda x: on_bincount_change(self))
     self.clip_range_control.connect("valuesChanged(double,double)", lambda x: on_clip_change(self))
     add_segment_btn.connect('clicked(bool)',lambda x:on_add_segment(self))
+    remove_segment_btn.connect('clicked(bool)',lambda x:on_remove_segment(self))
+    remove_all_segments_btn.connect('clicked(bool)',lambda x:clear_all_segments(self))
     self.show_total_control.connect("toggled(bool)",lambda x: on_show_total_changed(self))
     
     # initialization     
@@ -614,7 +646,7 @@ class InteractiveHistogram:
         slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
         
         # print(f"Segement '{segment_name}' processed")
-        slicer.app.processEvents()
+        # slicer.app.processEvents()
 
         histogram_data = self.calculate_histogram_with_mask(number_of_bins = self.number_of_bins,clip_min=self.clip_min,clip_max=self.clip_max,mask=mask)
         self.update_table(histogram_data=histogram_data,subname=f"{segment_name}")
