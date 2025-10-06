@@ -17,7 +17,9 @@ def computeQualityMeasures(lP: np.ndarray,
                            return_distances = False,
                            return_contours = False):
     """
-
+    this code is based on
+    https://github.com/Jingnan-Jia/segmentation_metrics/blob/master/seg_metrics/seg_metrics.py
+    
     :param lP: prediction, shape (x, y, z)
     :param lT: ground truth, shape (x, y, z)
     :param spacing: shape order (x, y, z)
