@@ -1,6 +1,9 @@
 import numpy as np
 import vtk
 import qt
+
+# from qt import QObject, QThread, Signal, Slot, QCoreApplication
+
 import ctk
 
 import slicer
@@ -35,6 +38,67 @@ def showYesNoMessageBox(title, text, parent=None):
   msgBox.setWindowModality(qt.Qt.ApplicationModal)
   ret = msgBox.exec_()
   return ret
+
+# class ProgressCommand(sitk.Command):
+#   def __init__(self, process_object, update_callback):
+#     super().__init__()
+#     self.process_object = process_object
+#     self.update_callback = update_callback
+#     self.progress_val = 0
+#     self.progress_step = 0.05
+
+#   def Execute(self):
+#     progress = self.process_object.GetProgress()
+
+#     if progress >= self.progress_val + self.progress_step:
+#       # GUI frissítés a main thread-ben
+#       QCoreApplication.processEvents()  # GUI események kezelése
+#       self.update_callback(progress)
+#       self.progress_val = progress
+
+# def update_gui_progress(progress):
+#   print(f"Filter progress: {progress*100:.1f}%")
+#   # Ide írhatsz GUI elemet frissítő kódot, pl. progress bar setValue()
+
+
+# class FilterWorker(qt.QObject):
+#   progressChanged = Signal(float)
+#   finished = Signal(object)
+#   error = Signal(str)
+
+#   def __init__(self, image, radius, out_dtype):
+#     super().__init__()
+#     self.image = image
+#     self.radius = radius
+#     self.out_dtype = out_dtype
+#     self._is_interrupted = False
+
+#   @Slot()
+#   def run(self):
+#     try:
+#       med_filter = sitk.MedianImageFilter()
+#       med_filter.SetRadius([self.radius]*self.image.GetDimension())
+
+#       def update_progress():
+#         prog = med_filter.GetProgress()
+#         self.progressChanged.emit(prog)
+#         QCoreApplication.processEvents()
+
+#       cmd = sitk.Command()
+#       cmd.SetCommandCallable(update_progress)
+#       med_filter.AddCommand(sitk.sitkProgressEvent, cmd)
+
+#       result = med_filter.Execute(self.image)
+#       if self._is_interrupted:
+#         self.error.emit('Interrupted')
+#         return
+#       casted = sitk.Cast(result, self.out_dtype)
+#       self.finished.emit(casted)
+#     except Exception as e:
+#       self.error.emit(str(e))
+
+#   def stop(self):
+#     self._is_interrupted = True
 
 
 class ParaviewPreprocessingFilter(CustomFilter):
@@ -189,6 +253,7 @@ class ParaviewPreprocessingFilter(CustomFilter):
     UI.widgets.append(UI.generate_images_btn)
     UI.addWidgetWithToolTip(UI.generate_images_btn,{"tip":"Generate images"})
     UI.generate_images_btn.connect('clicked(bool)',self.generate_images)
+    # UI.generate_images_btn.connect('clicked(bool)',self.generate_images_with_progress)
     UI.widgetConnections.append((UI.generate_images_btn,'clicked(bool)'))
     UI.generate_images_btn.enabled = False
     
@@ -272,6 +337,7 @@ class ParaviewPreprocessingFilter(CustomFilter):
     self.clip_val = max(min_val,self.UI.default_parameters["clip_val"])
     self.UI.clip_value_widget.value = self.clip_val
 
+
   def generate_images(self):
     if isinstance(self.UI.inputs[0],type(None)):
       print("Please select an input volume.")
@@ -309,7 +375,7 @@ class ParaviewPreprocessingFilter(CustomFilter):
     img_data_mask = np.zeros_like(img_data)
     
     if self.adaptive_clip:
-      _clip_val = np.min(img_data[img_data>=clip_val])
+      _clip_val = np.min(img_data[img_data>=self.clip_val])
     else:
       _clip_val = self.clip_val
 
@@ -328,14 +394,23 @@ class ParaviewPreprocessingFilter(CustomFilter):
       out_name =self.out_name
       if s != 0:
         out_name+=f"-m{s}"
-      qt.QApplication.processEvents()
+
       print(f"Calculating image '{out_name}' [ParaView preprocessign with clip @{_clip_val} & median filter of {s} size]")
+      qt.QApplication.processEvents()
+
       if s != 0:
         med_filter = sitk.MedianImageFilter()
         med_filter.SetDebug(False)
         med_filter.SetNumberOfThreads(16)
         med_filter.SetNumberOfWorkUnits(0)
         med_filter.SetRadius(tuple([s]*rescaled_sitk_image.GetDimension()))
+
+        # if s>2:
+        #   cmd = ProgressCommand(med_filter, update_gui_progress)
+        #   med_filter.AddCommand(sitk.sitkProgressEvent, cmd)
+        #   med_filter.AddCommand(sitk.sitkStartEvent, lambda: print("Median calculation started"))
+        #   med_filter.AddCommand(sitk.sitkEndEvent, lambda: print("Median calculation ended"))
+
         median_filtered = med_filter.Execute(rescaled_sitk_image)
       else:
         median_filtered = rescaled_sitk_image
@@ -349,4 +424,107 @@ class ParaviewPreprocessingFilter(CustomFilter):
       except Exception as e:
         print(e)
         continue
-      
+
+  def generate_images_with_progress(self):
+    #TODO https://github.com/SimpleITK/SlicerSimpleFilters/blob/master/SimpleFilters/SimpleFilters.py
+
+    if isinstance(self.UI.inputs[0], type(None)):
+      print("Please select an input volume.")
+      raise ReferenceError("Inputs not initialized.")
+
+    self.out_name = self.UI.out_name_widget.text
+
+    if len(self.median_filter_list) == 0:
+      self.median_filter_list = [0]
+
+    checkup_text = f"The following images will be generated with clipping at {self.clip_val}"
+    for s in self.median_filter_list:
+      if s == 0:
+        checkup_text += f"\nUn-smoothed image:\t{self.out_name}"
+      else:
+        checkup_text += f"\nKernel size = {s}:\t{self.out_name}-m{s}"
+    checkup_text += f"\nDo you proceed?"
+
+    result = showYesNoMessageBox(title="Attention", text=checkup_text)
+    if result != qt.QMessageBox.Yes:
+      return
+
+    input_img_node_name = self.UI.inputs[0].GetName()
+    sitk_img = sitk.ReadImage(sitkUtils.GetSlicerITKReadWriteAddress(input_img_node_name))
+    filter = sitk.MinimumMaximumImageFilter()
+    filter.Execute(sitk_img)
+    image_min_val = filter.GetMinimum()
+    image_max_val = filter.GetMaximum()
+
+    img_data = sitk.GetArrayFromImage(sitk_img)
+
+    if self.adaptive_clip:
+      _clip_val = np.min(img_data[img_data >= self.clip_val])
+    else:
+      _clip_val = self.clip_val
+
+    displacement = 0 - _clip_val
+    img_data = img_data + displacement
+    img_data[img_data < 0] = 0
+
+    rescaled_sitk_image = sitk.GetImageFromArray(img_data)
+    rescaled_sitk_image.SetOrigin(sitk_img.GetOrigin())
+    rescaled_sitk_image.SetDirection(sitk_img.GetDirection())
+    rescaled_sitk_image.SetSpacing(sitk_img.GetSpacing())
+
+    self.worker_threads = []  # tároljuk a futó szálakat
+
+    # Helper függvény a szálas futtatáshoz
+    def run_filter_in_thread(s, input_image, out_name):
+      thread = QThread()
+      worker = FilterWorker(input_image, s, lookup_dtype(self.out_dtype))
+      worker.moveToThread(thread)
+
+      def on_progress(progress):
+        print(f"[{out_name}] Progress: {progress*100:.1f}%")
+        qt.QApplication.processEvents()
+
+      def on_finished(casted_image):
+        print(f"[{out_name}] Filter finished.")
+        try:
+          # Új vagy létező node frissítése Slicerben
+          slicer.util.saveNode(casted_image, '/tmp/tmp_output.nii')  # vagy megfelelő mentés
+          slicer.util.updateVolumeFromArray(slicer.util.getNode(out_name), sitk.GetArrayFromImage(casted_image))
+        except Exception as e:
+          print(f"Error updating volume: {e}")
+        thread.quit()
+        thread.wait()
+
+      def on_error(err):
+        print(f"[{out_name}] Filter error: {err}")
+        thread.quit()
+        thread.wait()
+
+      thread.started.connect(worker.run)
+      worker.progressChanged.connect(on_progress)
+      worker.finished.connect(on_finished)
+      worker.error.connect(on_error)
+      worker.finished.connect(thread.quit)
+      worker.finished.connect(worker.deleteLater)
+      thread.finished.connect(thread.deleteLater)
+      thread.start()
+
+      self.worker_threads.append(thread)
+
+    for s in self.median_filter_list:
+      out_name = self.out_name
+      if s != 0:
+        out_name += f"-m{s}"
+
+      if s == 0:
+        # Nincs szűrés, de akkor is castoljuk és pusholjuk a képet
+        try:
+          casted_image = sitk.Cast(rescaled_sitk_image, lookup_dtype(self.out_dtype))
+          sitkUtils.PushVolumeToSlicer(casted_image, out_name)
+          print(f"Copied unfiltered image to {out_name}")
+        except Exception as e:
+          print(f"Error casting or pushing unfiltered image: {e}")
+      else:
+        print(f"Starting background calculation for {out_name} with kernel size {s}...")
+        run_filter_in_thread(s, rescaled_sitk_image, out_name)
+        
