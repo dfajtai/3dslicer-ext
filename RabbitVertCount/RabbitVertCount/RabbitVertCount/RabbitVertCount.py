@@ -773,9 +773,11 @@ class Rabbit():
         # Tengelyek (Axes) beállítása
         viewNode.SetOrientationMarkerType(slicer.vtkMRMLAbstractViewNode.OrientationMarkerTypeAxes)
         viewNode.SetOrientationMarkerSize(slicer.vtkMRMLAbstractViewNode.OrientationMarkerSizeLarge)
+        viewNode.SetBoxVisible(False)
     # ------------------------------------
     
     threeDView.resetFocalPoint()
+    threeDView.resetCamera()
     
     # restore markups node as default markup
     selectionNode = slicer.app.applicationLogic().GetSelectionNode()
