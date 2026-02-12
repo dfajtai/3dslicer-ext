@@ -158,15 +158,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Called when the application closes and the module widget is destroyed.
     """
-
-    tmpdict = slicer.util.getNodes(useLists=True)
-    for k, v in tmpdict.items():
-      try:
-        if isinstance(v.GetSingletonTag(),type(None)):
-          slicer.mrmlScene.RemoveNode(v)
-      except:
-        continue
-    
+    print("Rabbit2Segment cleanup")
     self.removeObservers()
 
   def enter(self):
@@ -188,6 +180,9 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called just before the scene is closed.
     """
     # Parameter node will be reset, do not use it anymore
+    if hasattr(self.logic, "active_rabbit") and self.logic.active_rabbit:
+      self.logic.close_active_rabbit(no_question=True)
+
     self.setParameterNode(None)
 
   def onSceneEndClose(self, caller, event):
@@ -658,6 +653,9 @@ class Rabbit():
 
     self.node_dict = {} # file path - node
     self.writeable_node_paths = []
+    
+    self.volume_rendering_node = None
+    self.volume_rendering_roi  = None
 
     #get corresponding rows
     db_row = list(filter(lambda x: (x["ID"]==ID) & (x["batch"]==batch) & (x["position"]==position) , dbDictList))
@@ -696,7 +694,7 @@ class Rabbit():
   
   @property
   def final_save_dir(self):
-    return os.path.join(self._root_dir_,"results")
+    return os.path.join(root_path,"results")
 
   def update_done(self,table):
     try:
@@ -732,9 +730,9 @@ class Rabbit():
     
     volume_display_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeDisplayNode")
     for v in volume_display_nodes:
-        v.InterpolateOff()
-        v.SetAutoWindowLevel(0)
-        v.SetWindowLevelMinMax(-150,700)
+      v.InterpolateOff()
+      v.SetAutoWindowLevel(0)
+      v.SetWindowLevelMinMax(-150,700)
     
     
     segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor
@@ -746,7 +744,6 @@ class Rabbit():
     displayNode.UnRegister(logic)
     slicer.mrmlScene.AddNode(displayNode)
     
-    
     if _render_mask_:
       self.node_dict[self.mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
       logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.mask_path])
@@ -756,11 +753,14 @@ class Rabbit():
       
       preset = logic.GetPresetByName('CT-Chest-Contrast-Enhanced')
       if preset:
-          displayNode.GetVolumePropertyNode().Copy(preset)
-      
-      
-    self.volume_rendering_node = displayNode  
-    self.volume_rendering_roi = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
+        displayNode.GetVolumePropertyNode().Copy(preset)
+            
+    self.volume_rendering_node = displayNode
+    roiNode = displayNode.GetROINode()
+    if not roiNode:
+      displayNode.CreateDefaultROI()
+      roiNode = displayNode.GetROINode()
+    self.volume_rendering_roi = [roiNode]
 
     slicer.app.processEvents() 
   
@@ -770,10 +770,10 @@ class Rabbit():
     
     viewNode = threeDView.mrmlViewNode()
     if viewNode:
-        # Tengelyek (Axes) beállítása
-        viewNode.SetOrientationMarkerType(slicer.vtkMRMLAbstractViewNode.OrientationMarkerTypeAxes)
-        viewNode.SetOrientationMarkerSize(slicer.vtkMRMLAbstractViewNode.OrientationMarkerSizeLarge)
-        viewNode.SetBoxVisible(False)
+      # Tengelyek (Axes) beállítása
+      viewNode.SetOrientationMarkerType(slicer.vtkMRMLAbstractViewNode.OrientationMarkerTypeAxes)
+      viewNode.SetOrientationMarkerSize(slicer.vtkMRMLAbstractViewNode.OrientationMarkerSizeLarge)
+      viewNode.SetBoxVisible(False)
     # ------------------------------------
     
     threeDView.resetFocalPoint()
@@ -789,12 +789,12 @@ class Rabbit():
     if markupsWidget:
       controlPointsButton = slicer.util.findChild(markupsWidget, 'controlPointsCollapsibleButton')
       if controlPointsButton:
-          controlPointsButton.collapsed = False
+        controlPointsButton.collapsed = False
         
     if autoremove:
-        for r in self.volume_rendering_roi:
-            slicer.mrmlScene.RemoveNode(r)
-        self.volume_rendering_roi = []    
+      for r in self.volume_rendering_roi:
+        slicer.mrmlScene.RemoveNode(r)
+      self.volume_rendering_roi = []    
   
   def load(self, volume_rendering = True):
     print(f"loading rabbit {self.batch}-{self.ID}-{self.position}")
@@ -838,70 +838,60 @@ class Rabbit():
 
 
   def close(self):
+    if slicer.mrmlScene.IsClosing():
+      print("Scene is closing, skip rabbit cleanup")
+      return
+
     print(f"closing rabbit '{self.batch}-{self.ID}-{self.position}'")
-    remaining_nodes = {}
 
-    for k in self.node_dict.keys():
-      try:
-        node = self.node_dict[k]
-        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-        slicer.mrmlScene.RemoveNode(node)
-      except:
-        remaining_nodes[k] = node
-
-    if not isinstance(self.volume_rendering_node,type(None)):
+    # Volume rendering display node
+    if self.volume_rendering_node and slicer.mrmlScene.IsNodePresent(self.volume_rendering_node):
       slicer.mrmlScene.RemoveNode(self.volume_rendering_node)
-    if not isinstance(self.volume_rendering_roi,type(None)):
-      for n in self.volume_rendering_roi:
-          slicer.mrmlScene.RemoveNode(n)
-    
-    try:
-      classnames = ["vtkMRMLVolumePropertyNode","vtkMRMLScalarVolumeDisplayNode"]
-      for c in classnames:
-        ns = slicer.mrmlScene.GetNodesByClass(c)
-        for n in ns:
-          slicer.mrmlScene.RemoveNode(n)
-      
-      tmpdict = slicer.util.getNodes(useLists=True)
-      for k, v in tmpdict.items():
-        
-        if str(k).endswith("Default") or str(k).endswith("DefaultCopy"):
-          slicer.mrmlScene.RemoveNode(v[0])
+      self.volume_rendering_node = None
 
-    except Exception as e:
-      print(e)
+    # ROI node – csak ha saját!
+    if hasattr(self, "volume_rendering_roi") and self.volume_rendering_roi:
+      for roi in self.volume_rendering_roi:
+        if roi and slicer.mrmlScene.IsNodePresent(roi):
+          slicer.mrmlScene.RemoveNode(roi)
+      self.volume_rendering_roi = []
 
-    self.node_dict = dict(remaining_nodes)
+    # Saját node-ok
+    for node in list(self.node_dict.values()):
+      if node and slicer.mrmlScene.IsNodePresent(node):
+        slicer.mrmlScene.RemoveNode(node)
+
+    self.node_dict = {}
 
 
 def batch_exporter():
     import vtk, qt, ctk, slicer
     import os
     if slicer.modules.RabbitVertCountWidget.logic.hasActiveRabbit:
-        print("Please close active rabbit!")
-        return
+      print("Please close active rabbit!")
+      return
     
     slicer.modules.RabbitVertCountWidget.onBtnInitializeStudy()
     for (batch,ID,position), rabbit in slicer.modules.RabbitVertCountWidget.logic.rabbits.items():
-        if not rabbit.db_info["done"]=='1':
-            continue
-        #open rabbit
-        slicer.modules.RabbitVertCountWidget.logic.load_rabbit(batch = batch, ID = ID, position = position, volume_rendering= False)
+      if not rabbit.db_info["done"]=='1':
+        continue
+      #open rabbit
+      slicer.modules.RabbitVertCountWidget.logic.load_rabbit(batch = batch, ID = ID, position = position, volume_rendering= False)
 
-        markups_node = rabbit.node_dict[rabbit.markups_path]
-        if not os.path.isdir(rabbit.final_save_dir):
-          os.makedirs(rabbit.final_save_dir,exist_ok=True)
+      markups_node = rabbit.node_dict[rabbit.markups_path]
+      if not os.path.isdir(rabbit.final_save_dir):
+        os.makedirs(rabbit.final_save_dir,exist_ok=True)
 
-        markups_save_path = os.path.join(rabbit.final_save_dir,f"{str(rabbit.batch).upper()}-{str(rabbit.ID).upper()}-{str(rabbit.position).upper()}-markups.mrk.json")
+      markups_save_path = os.path.join(rabbit.final_save_dir,f"{str(rabbit.batch).upper()}-{str(rabbit.ID).upper()}-{str(rabbit.position).upper()}-markups.mrk.json")
 
-        storageNode = markups_node.CreateDefaultStorageNode()
-        storageNode.SetFileName(markups_save_path)
-        storageNode.WriteData(markups_node)
+      storageNode = markups_node.CreateDefaultStorageNode()
+      storageNode.SetFileName(markups_save_path)
+      storageNode.WriteData(markups_node)
 
-        slicer.mrmlScene.RemoveNode(storageNode)
+      slicer.mrmlScene.RemoveNode(storageNode)
 
-        #close rabbit
-        slicer.modules.RabbitVertCountWidget.logic.close_active_rabbit(True)
+      #close rabbit
+      slicer.modules.RabbitVertCountWidget.logic.close_active_rabbit(True)
         
 
         
