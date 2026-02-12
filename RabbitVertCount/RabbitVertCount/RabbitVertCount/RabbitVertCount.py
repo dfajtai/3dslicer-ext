@@ -12,28 +12,26 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
-rel_paths = True
-stored_data_path = "THIS_IS_NOT_STORED" # DUMMY
-current_data_path = "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE"
+root_path = "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work"
 
+batches = {2: "2015047",
+           1: "20180109"}
+
+# EZT KELL ÁTÍRNI
+batch_number = 1
+
+batch_path = os.path.join(root_path,batches.get(batch_number))
 
 _volume_rendering_  = True
 _render_mask_ = False
 
-__database_csv_path__ = os.path.join(current_data_path,"etc","database.csv")
-__preseg_csv_path__ = os.path.join(current_data_path,"etc","img_paths.csv")
-__study_dir__ =  os.path.join(current_data_path,"segmentation")
+__database_csv_path__ = os.path.join(batch_path,"etc","database.csv")
+__preseg_csv_path__ = os.path.join(batch_path,"etc","img_paths.csv")
+__study_dir__ =  os.path.join(batch_path)
 
 
-def fix_path(path):
-  if rel_paths:
-    return add_current_path(path)
-  else:
-    return str(path).replace(stored_data_path,current_data_path)
-
-def add_current_path(rel_path):
-    # return os.path.join(str(current_data_path), rel_path)
-    return os.path.join(str(__study_dir__), rel_path)
+def fix_path(rel_path):
+  return os.path.join(str(__study_dir__), rel_path)
 
 
 #
@@ -459,7 +457,7 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
   _database_csv_path_ = fix_path(__database_csv_path__)
   _preseg_csv_path_ =  fix_path(__preseg_csv_path__)
   _study_dir_ = fix_path(__study_dir__)
-  _root_dir_ = fix_path(current_data_path)
+  _root_dir_ = fix_path(batch_path)
   
   def __init__(self):
     """
@@ -671,7 +669,9 @@ class Rabbit():
       self.preseg_paths = preseg_row[0]
 
     self.CT_path = fix_path(str(self.preseg_paths["img_path"]).replace(2*os.sep,os.sep))
-    self.enhanced_path = fix_path(str(self.preseg_paths["enhanced_img_path"]).replace(2*os.sep,os.sep))
+    
+    # self.enhanced_path = fix_path(str(self.preseg_paths["enhanced_img_path"]).replace(2*os.sep,os.sep))
+    
     self.mask_path = fix_path(str(self.preseg_paths["mask_path"]).replace(2*os.sep,os.sep))
     self.markups_path = fix_path(str(self.preseg_paths["markups_path"]).replace(2*os.sep,os.sep))
 
