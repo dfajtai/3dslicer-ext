@@ -834,7 +834,7 @@ class Rabbit():
       _storageNode = node.CreateDefaultStorageNode()
       _storageNode.SetFileName(path)
       _storageNode.WriteData(node)
-      slicer.mrmlScene.RemoveNode(_storageNode)
+      # slicer.mrmlScene.RemoveNode(_storageNode)
 
 
   def close(self):
