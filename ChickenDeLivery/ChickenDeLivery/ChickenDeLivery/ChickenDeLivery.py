@@ -12,23 +12,15 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
-root_path = "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/"
+root_path = "/nas/medicopus_share/Projects/ANIMALS/kendermagos/liver_segmentation"
 # root_path = "/media/fajtai/DF64_4/"
 
-batches = {2: "2015047",
-           1: "20180109"}
-
-# EZT KELL ÁTÍRNI
-batch_number = 1
-
-batch_path = os.path.join(root_path,batches.get(batch_number))
-
 _volume_rendering_  = True
-_render_mask_ = False
+# _render_mask_ = False
 
-__database_csv_path__ = os.path.join(batch_path,"etc","database.csv")
-__preseg_csv_path__ = os.path.join(batch_path,"etc","img_paths.csv")
-__study_dir__ =  os.path.join(batch_path)
+__database_csv_path__ = os.path.join(root_path,"etc","database.csv")
+__preseg_csv_path__ = os.path.join(root_path,"etc","img_paths.csv")
+__study_dir__ =  os.path.join(root_path)
 
 
 def fix_path(rel_path):
@@ -36,24 +28,24 @@ def fix_path(rel_path):
 
 
 #
-# RabbitVertCount
+# ChickenDeLivery
 #
 
-class RabbitVertCount(ScriptedLoadableModule):
+class ChickenDeLivery(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Rabbit 2 Segment"  # TODO: make this more human readable by adding spaces
+    self.parent.title = "ChickenDeLivery"  # TODO: make this more human readable by adding spaces
     self.parent.categories = ["Segmentation"]  # TODO: set categories (folders where the module shows up in the module selector)
     self.parent.dependencies = []  # TODO: add here list of module names that this module requires
     self.parent.contributors = ["Daniel Fajtai"]  # TODO: replace with "Firstname Lastname (Organization)"
     # TODO: update with short description of the module and a link to online module documentation
     self.parent.helpText = """
-    This is a simple module for rabbit CT rib and vertebrae counting.
-    See more information in <a href="https://github.com/organization/projectname#RabbitVertCount">module documentation</a>.
+    This is a simple module for chicken CT rib and vertebrae counting.
+    See more information in <a href="https://github.com/organization/projectname#ChickenDeLivery">module documentation</a>.
     """
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """I made this on my own."""
@@ -75,15 +67,14 @@ def registerSampleData():
 
   import SampleData
   iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
-  print("Sample for RabbitVertCount not implemented")
-
+  print("Sample for ChickenDeLivery not implemented")
 
 
 #
-# RabbitVertCountWidget
+# ChickenDeLiveryWidget
 #
 
-class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class ChickenDeLiveryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
@@ -112,7 +103,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath('UI/RabbitVertCount.ui'))
+    uiWidget = slicer.util.loadUI(self.resourcePath('UI/ChickenDeLivery.ui'))
     self.layout.addWidget(uiWidget)
     self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -123,7 +114,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
-    self.logic = RabbitVertCountLogic()
+    self.logic = ChickenDeLiveryLogic()
 
     # Connections
 
@@ -137,8 +128,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.tbDBPath.textChanged.connect(self.updateParameterNodeFromGUI)
     self.ui.tbPresegPath.textChanged.connect(self.updateParameterNodeFromGUI)
 
-    self.ui.tblRabbits.selectionModel().selectionChanged.connect(self.selected_rabbit_changed)
-    self.ui.tblRabbits.itemChanged.connect(self.rabbit_tbl_changed)
+    self.ui.tblChickens.selectionModel().selectionChanged.connect(self.selected_chicken_changed)
+    self.ui.tblChickens.itemChanged.connect(self.chicken_tbl_changed)
     
     # Buttons
     #self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -148,8 +139,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.btnBatchExport.connect('clicked(bool)',self.onBtnBatchExport)
     self.ui.btnLoadSelected.connect('clicked(bool)',self.onBtnLoadSelected)
-    self.ui.btnSaveActiveRabbit.connect('clicked(bool)',self.onBtnSaveActiveRabbit)
-    self.ui.btnCloseActiveRabbit.connect('clicked(bool)',self.onBtnCloseActiveRabbit)
+    self.ui.btnSaveActiveChicken.connect('clicked(bool)',self.onBtnSaveActiveChicken)
+    self.ui.btnCloseActiveChicken.connect('clicked(bool)',self.onBtnCloseActiveChicken)
     self.ui.btnSaveDB.connect('clicked(bool)',self.onBtnSaveDB)
 
     # Make sure parameter node is initialized (needed for module reload)
@@ -159,7 +150,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Called when the application closes and the module widget is destroyed.
     """
-    print("Rabbit2Segment cleanup")
+    print("ChickenDelivery cleanup")
     self.removeObservers()
 
   def enter(self):
@@ -181,8 +172,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called just before the scene is closed.
     """
     # Parameter node will be reset, do not use it anymore
-    if hasattr(self.logic, "active_rabbit") and self.logic.active_rabbit:
-      self.logic.close_active_rabbit(no_question=True)
+    if hasattr(self.logic, "active_chicken") and self.logic.active_chicken:
+      self.logic.close_active_chicken(no_question=True)
 
     self.setParameterNode(None)
 
@@ -292,44 +283,44 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     try:
       print("btnInitializeStudy clicked")
       self.logic.initializeStudy()
-      self.show_rabbit_db_table()
+      self.show_chicken_db_table()
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
       import traceback
       traceback.print_exc()
 
-  def show_rabbit_db_table(self):
+  def show_chicken_db_table(self):
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
 
     wasModified = self._parameterNode.StartModify()
 
     IDs = []   
-    IDs.extend([ID for ID in self.logic.rabbits.keys()])
+    IDs.extend([ID for ID in self.logic.chickens.keys()])
     
     IDs = sorted(IDs)
 
-    tbl = self.ui.tblRabbits
+    tbl = self.ui.tblChickens
     tbl.clear()
     tbl.clearContents()
 
-    db_info_filter = ["batch","ID","position","RC_Right","RC_Left","HasAtypical1","V_Total","HasAtypical2","V_After","Comment","done"]
+    db_info_filter = ["ID","position","Comment","done"]
     
     tbl.setColumnCount(len(db_info_filter))
     tbl.setRowCount(len(IDs))
     
     for i in range(len(IDs)):
-      rabbit = self.logic.rabbits[IDs[i]]
-      rabbit.update_done(self.logic.dbTable)
+      chicken = self.logic.chickens[IDs[i]]
+      chicken.update_done(self.logic.dbTable)
       for j in range(len(db_info_filter)):
-        tbl.setItem(i,j,qt.QTableWidgetItem(rabbit.db_info.get(db_info_filter[j])))
+        tbl.setItem(i,j,qt.QTableWidgetItem(chicken.db_info.get(db_info_filter[j])))
         if j!=(len(db_info_filter)-1):
           #tbl.item(i,j).setFlags(qt.Qt.ItemIsEnabled)
           pass
 
-      if rabbit.db_info.get("done") == str(1):
-        for j in range(self.ui.tblRabbits.columnCount):
+      if chicken.db_info.get("done") == str(1):
+        for j in range(self.ui.tblChickens.columnCount):
           tbl.item(i,j).setBackground(qt.QColor(0,127,0))
 
 
@@ -337,28 +328,27 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     tbl.resizeColumnsToContents()
     self._parameterNode.EndModify(wasModified) 
 
-  def selected_rabbit_changed(self):
-    current_selection = self.ui.tblRabbits.selectedIndexes()
+  def selected_chicken_changed(self):
+    current_selection = self.ui.tblChickens.selectedIndexes()
     if len(current_selection)>0:
       current_selection = current_selection[0]
-      _batch = self.ui.tblRabbits.item(current_selection.row(),0).text()
-      _ID = self.ui.tblRabbits.item(current_selection.row(),1).text()
-      _position = self.ui.tblRabbits.item(current_selection.row(),2).text()
+      _ID = self.ui.tblChickens.item(current_selection.row(),0).text()
+      _position = self.ui.tblChickens.item(current_selection.row(),1).text()
       
-      tbl_selected = f"{_batch}-{_ID}-{_position}"
+      tbl_selected = f"{_ID}-{_position}"
       
       self.tblSelectedIndex = current_selection
       self.tbl_selected_key = tbl_selected
-      self.tbl_selected_key_tuple = (_batch,_ID,_position)
-      self.ui.lblSelectedRabbit.text = tbl_selected
+      self.tbl_selected_key_tuple = (_ID,_position)
+      self.ui.lblSelectedChicken.text = tbl_selected
   
-  def rabbit_tbl_changed(self):
+  def chicken_tbl_changed(self):
     if self.table_lock:
       return
     self.table_lock = True
 
     try:
-      tbl = self.ui.tblRabbits
+      tbl = self.ui.tblChickens
       current_selection = tbl.selectedIndexes()
       if len(current_selection)>0:
         current_selection = current_selection[0]
@@ -374,12 +364,11 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
         if current_selection.column() == tbl.columnCount-1:
           #modify done in table
-          _batch = self.ui.tblRabbits.item(current_selection.row(),0).text()
-          _ID = self.ui.tblRabbits.item(current_selection.row(),1).text()
-          _position = self.ui.tblRabbits.item(current_selection.row(),2).text()
-          rabbit = self.logic.rabbits[(_batch,_ID,_position)]
+          _ID = self.ui.tblChickens.item(current_selection.row(),0).text()
+          _position = self.ui.tblChickens.item(current_selection.row(),1).text()
+          chicken = self.logic.chickens[(_ID,_position)]
         
-          self.logic.dbTable.SetCellText(rabbit.row_index,rabbit.done_col_index, current_done)
+          self.logic.dbTable.SetCellText(chicken.row_index,chicken.done_col_index, current_done)
         else:
           # ducktaped...
           val = tbl.item(current_selection.row(),current_selection.column()).text()
@@ -399,32 +388,32 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if not self.tbl_selected_key:
         return
 
-      _batch, _ID, _position = self.tbl_selected_key_tuple
-      load_success = self.logic.load_rabbit(batch=_batch, ID=_ID, position= _position,volume_rendering=_volume_rendering_)
-      self.ui.btnLoadSelected.enabled = not self.logic.hasActiveRabbit
-      if self.logic.hasActiveRabbit:
-        self.ui.lblActiveRabbit.text= self.logic.active_rabbit.ID
+      _ID, _position = self.tbl_selected_key_tuple
+      load_success = self.logic.load_chicken(ID=_ID, position= _position,volume_rendering=_volume_rendering_)
+      self.ui.btnLoadSelected.enabled = not self.logic.hasActiveChicken
+      if self.logic.hasActiveChicken:
+        self.ui.lblActiveChicken.text= self.logic.active_chicken.ID
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
       import traceback
       traceback.print_exc()
       
-  def onBtnSaveActiveRabbit(self):
+  def onBtnSaveActiveChicken(self):
     try:
-      save_success = self.logic.save_active_rabbit()
+      save_success = self.logic.save_active_chicken()
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
       import traceback
       traceback.print_exc()
 
-  def onBtnCloseActiveRabbit(self):
+  def onBtnCloseActiveChicken(self):
     try:
-      close_success = self.logic.close_active_rabbit()
-      self.ui.btnLoadSelected.enabled = not self.logic.hasActiveRabbit
-      if not self.logic.hasActiveRabbit:
-        self.ui.lblActiveRabbit.text= ""
+      close_success = self.logic.close_active_chicken()
+      self.ui.btnLoadSelected.enabled = not self.logic.hasActiveChicken
+      if not self.logic.hasActiveChicken:
+        self.ui.lblActiveChicken.text= ""
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
@@ -446,14 +435,14 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     batch_exporter()
 
 #
-# RabbitVertCountLogic
+# ChickenDeLiveryLogic
 #
 
-class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
+class ChickenDeLiveryLogic(ScriptedLoadableModuleLogic):
   _database_csv_path_ = fix_path(__database_csv_path__)
   _preseg_csv_path_ =  fix_path(__preseg_csv_path__)
   _study_dir_ = fix_path(__study_dir__)
-  _root_dir_ = fix_path(batch_path)
+  _root_dir_ = fix_path(root_path)
   
   def __init__(self):
     """
@@ -468,9 +457,9 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
     self.presegDictList = []
     
     self.ID_list = []
-    self.rabbits = {}
+    self.chickens = {}
 
-    self.active_rabbit = None
+    self.active_chicken = None
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -526,18 +515,18 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
     self.dbDictList = self.init_table(self.dbTable)
     self.presegDictList = self.init_table(self.presegTable)
 
-    batch_id_position = [(item.get("batch"),item.get("ID"),item.get("position"))  for item in self.dbDictList]
-    batch_id_position = sorted(batch_id_position,key=lambda x: (x[0],x[1],x[2]))
-    self.ID_list = batch_id_position
+    id_position = [(item.get("ID"),item.get("position"))  for item in self.dbDictList]
+    id_position = sorted(id_position,key=lambda x: (x[0],x[1]))
+    self.ID_list = id_position
 
     print(self.ID_list)
-    print(f"Initializing {len(self.ID_list)} rabbits")
-    self.rabbits = dict([((batch,ID,position), Rabbit(batch=batch,
+    print(f"Initializing {len(self.ID_list)} chickens")
+    self.chickens = dict([((ID,position), Chicken(
                                                              ID = ID,
                                                              position = position, 
                                                              dbDictList= self.dbDictList, 
                                                              presegDictList = self.presegDictList, 
-                                                             study_dir = self._study_dir_)) for (batch, ID, position) in self.ID_list])
+                                                             study_dir = self._study_dir_)) for (ID, position) in self.ID_list])
 
   
 
@@ -571,45 +560,45 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
     c.setDefaultButton(qt.QMessageBox.Ok)
     answer = c.exec_()
 
-  def load_rabbit(self, batch, ID, position, volume_rendering = False):
-    target_rabbit = self.rabbits.get((batch,ID,position))
+  def load_chicken(self, ID, position, volume_rendering = False):
+    target_chicken = self.chickens.get((ID,position))
 
-    if isinstance(self.active_rabbit,Rabbit):
-      self.info_message_box("A rabbit has been already loaded.")      
+    if isinstance(self.active_chicken,Chicken):
+      self.info_message_box("A chicken has been already loaded.")      
       return
 
-    if isinstance(target_rabbit,type(None)):
-      raise ValueError(f"rabbit {batch}-{ID}-{position} not initialized")
+    if isinstance(target_chicken,type(None)):
+      raise ValueError(f"chicken {ID}-{position} not initialized")
 
-    target_rabbit.load(volume_rendering=volume_rendering)
+    target_chicken.load(volume_rendering=volume_rendering)
 
-    self.active_rabbit = target_rabbit
+    self.active_chicken = target_chicken
 
     return True
   
-  def close_active_rabbit(self, no_question = False):
-    if no_question and not isinstance(self.active_rabbit,type(None)):
-      self.active_rabbit.close()
-      self.active_rabbit = None
+  def close_active_chicken(self, no_question = False):
+    if no_question and not isinstance(self.active_chicken,type(None)):
+      self.active_chicken.close()
+      self.active_chicken = None
       return
 
-    if not isinstance(self.active_rabbit,Rabbit):
-      self.info_message_box("There is no active rabbit to close.")
+    if not isinstance(self.active_chicken,Chicken):
+      self.info_message_box("There is no active chicken to close.")
       return
 
-    if not self.confim_message_box("Do you really want to close the active rabbit?"):
+    if not self.confim_message_box("Do you really want to close the active chicken?"):
       return
-    self.active_rabbit.close()
-    self.active_rabbit = None
+    self.active_chicken.close()
+    self.active_chicken = None
 
-  def save_active_rabbit(self):
-    if not isinstance(self.active_rabbit,Rabbit):
-      self.info_message_box("There is no active rabbit to save.")
+  def save_active_chicken(self):
+    if not isinstance(self.active_chicken,Chicken):
+      self.info_message_box("There is no active chicken to save.")
       return
 
-    self.active_rabbit.save()
+    self.active_chicken.save()
     qt.QApplication.processEvents()
-    self.info_message_box("Save complete. You can safely close the rabbit.")
+    self.info_message_box("Save complete. You can safely close the chicken.")
 
   def save_db(self):
     _storageNode = self.dbTable.CreateDefaultStorageNode()
@@ -618,14 +607,14 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
 
 
   @property
-  def hasActiveRabbit(self):
-    return isinstance(self.active_rabbit,Rabbit)
+  def hasActiveChicken(self):
+    return isinstance(self.active_chicken,Chicken)
 
 #
-# RabbitVertCountTest
+# ChickenDeLiveryTest
 #
 
-class RabbitVertCountTest(ScriptedLoadableModuleTest):
+class ChickenDeLiveryTest(ScriptedLoadableModuleTest):
   def setUp(self):
     """ Do whatever is needed to reset the state - typically a scene clear will be enough.
     """
@@ -636,15 +625,14 @@ class RabbitVertCountTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_RabbitVertCount()
+    self.test_ChickenDeLivery()
 
-  def test_RabbitVertCount(self):
+  def test_ChickenDeLivery(self):
     assert(False)
 
 
-class Rabbit():
-  def __init__(self, batch, ID, position, dbDictList, presegDictList, study_dir):
-    self.batch = batch
+class Chicken():
+  def __init__(self, ID, position, dbDictList, presegDictList, study_dir):
     self.ID = ID
     self.position = position
     
@@ -659,11 +647,11 @@ class Rabbit():
     self.volume_rendering_roi  = None
 
     #get corresponding rows
-    db_row = list(filter(lambda x: (x["ID"]==ID) & (x["batch"]==batch) & (x["position"]==position) , dbDictList))
+    db_row = list(filter(lambda x: (x["ID"]==ID) & (x["position"]==position) , dbDictList))
     if len(db_row)>0:
       self.db_info = db_row[0]
 
-    preseg_row = list(filter(lambda x: (x["ID"]==ID) & (x["batch"]==batch) & (x["position"]==position), presegDictList))
+    preseg_row = list(filter(lambda x: (x["ID"]==ID) & (x["position"]==position), presegDictList))
     if len(preseg_row)>0:
       self.preseg_paths = preseg_row[0]
 
@@ -671,12 +659,12 @@ class Rabbit():
     
     # self.enhanced_path = fix_path(str(self.preseg_paths["enhanced_img_path"]).replace(2*os.sep,os.sep))
     
-    self.mask_path = fix_path(str(self.preseg_paths["mask_path"]).replace(2*os.sep,os.sep))
+    # self.mask_path = fix_path(str(self.preseg_paths["mask_path"]).replace(2*os.sep,os.sep))
     self.markups_path = fix_path(str(self.preseg_paths["markups_path"]).replace(2*os.sep,os.sep))
 
     self.row_index = 0
     for i in range(len(dbDictList)):
-      if (dbDictList[i]["ID"]==ID) & (dbDictList[i]["position"]==position) & (dbDictList[i]["batch"]==batch):
+      if (dbDictList[i]["ID"]==ID) & (dbDictList[i]["position"]==position) :
         break
     self.row_index = i
     
@@ -687,11 +675,11 @@ class Rabbit():
     self.done_col_index = j
 
 
-    #print(f"Rabbit {self.ID} initialized." )
+    #print(f"Chicken {self.ID} initialized." )
 
   @property
   def slicer_out_dir(self):
-    return os.path.join(self.study_dir,self.batch)
+    return os.path.join(self.study_dir)
   
   @property
   def final_save_dir(self):
@@ -745,16 +733,18 @@ class Rabbit():
     displayNode.UnRegister(logic)
     slicer.mrmlScene.AddNode(displayNode)
     
-    if _render_mask_:
-      self.node_dict[self.mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
-      logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.mask_path])
-    else:
-      self.node_dict[self.CT_path].AddAndObserveDisplayNodeID(displayNode.GetID())
-      logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.CT_path])
-      
-      preset = logic.GetPresetByName('CT-Chest-Contrast-Enhanced')
-      if preset:
-        displayNode.GetVolumePropertyNode().Copy(preset)
+    # if _render_mask_:
+    #   self.node_dict[self.mask_path].AddAndObserveDisplayNodeID(displayNode.GetID())
+    #   logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.mask_path])
+    # else:
+    #   self.node_dict[self.CT_path].AddAndObserveDisplayNodeID(displayNode.GetID())
+    #   logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.CT_path])
+    
+    self.node_dict[self.CT_path].AddAndObserveDisplayNodeID(displayNode.GetID())
+    logic.UpdateDisplayNodeFromVolumeNode(displayNode, self.node_dict[self.CT_path])
+    preset = logic.GetPresetByName('CT-Chest-Contrast-Enhanced')
+    if preset:
+      displayNode.GetVolumePropertyNode().Copy(preset)
             
     self.volume_rendering_node = displayNode
     roiNode = displayNode.GetROINode()
@@ -798,14 +788,14 @@ class Rabbit():
       self.volume_rendering_roi = []    
   
   def load(self, volume_rendering = True):
-    print(f"loading rabbit {self.batch}-{self.ID}-{self.position}")
+    print(f"loading chicken {self.ID}-{self.position}")
 
     #load ct
     CT_node = slicer.util.loadVolume(self.CT_path)
     self.node_dict[self.CT_path] = CT_node
     
-    mask_node = slicer.util.loadLabelVolume(self.mask_path)
-    self.node_dict[self.mask_path] = mask_node
+    # mask_node = slicer.util.loadLabelVolume(self.mask_path)
+    # self.node_dict[self.mask_path] = mask_node
 
     markups_node = slicer.util.loadMarkups(self.markups_path)
     self.node_dict[self.markups_path] = markups_node
@@ -815,7 +805,7 @@ class Rabbit():
 
     self.writeable_node_paths.append(self.markups_path)
     
-    slicer.util.setSliceViewerLayers(background=CT_node, label = mask_node, labelOpacity= 0.1)
+    slicer.util.setSliceViewerLayers(background=CT_node)
     
     self.customize_workplace()
     if volume_rendering:
@@ -823,7 +813,7 @@ class Rabbit():
 
 
   def save(self):
-    print(f"saving rabbit {self.batch}-{self.ID}-{self.position}")
+    print(f"saving chicken {self.ID}-{self.position}")
     if not os.path.isdir(self.slicer_out_dir):
       os.makedirs(self.slicer_out_dir,exist_ok=True)
 
@@ -840,10 +830,10 @@ class Rabbit():
 
   def close(self):
     if slicer.mrmlScene.IsClosing():
-      print("Scene is closing, skip rabbit cleanup")
+      print("Scene is closing, skip chicken cleanup")
       return
 
-    print(f"closing rabbit '{self.batch}-{self.ID}-{self.position}'")
+    print(f"closing chicken '{self.ID}-{self.position}'")
 
     # Volume rendering display node
     if self.volume_rendering_node and slicer.mrmlScene.IsNodePresent(self.volume_rendering_node):
@@ -868,22 +858,22 @@ class Rabbit():
 def batch_exporter():
     import vtk, qt, ctk, slicer
     import os
-    if slicer.modules.RabbitVertCountWidget.logic.hasActiveRabbit:
-      print("Please close active rabbit!")
+    if slicer.modules.ChickenDeLiveryWidget.logic.hasActiveChicken:
+      print("Please close active chicken!")
       return
     
-    slicer.modules.RabbitVertCountWidget.onBtnInitializeStudy()
-    for (batch,ID,position), rabbit in slicer.modules.RabbitVertCountWidget.logic.rabbits.items():
-      if not rabbit.db_info["done"]=='1':
+    slicer.modules.ChickenDeLiveryWidget.onBtnInitializeStudy()
+    for (ID,position), chicken in slicer.modules.ChickenDeLiveryWidget.logic.chickens.items():
+      if not chicken.db_info["done"]=='1':
         continue
-      #open rabbit
-      slicer.modules.RabbitVertCountWidget.logic.load_rabbit(batch = batch, ID = ID, position = position, volume_rendering= False)
+      #open chicken
+      slicer.modules.ChickenDeLiveryWidget.logic.load_chicken(ID = ID, position = position, volume_rendering= False)
 
-      markups_node = rabbit.node_dict[rabbit.markups_path]
-      if not os.path.isdir(rabbit.final_save_dir):
-        os.makedirs(rabbit.final_save_dir,exist_ok=True)
+      markups_node = chicken.node_dict[chicken.markups_path]
+      if not os.path.isdir(chicken.final_save_dir):
+        os.makedirs(chicken.final_save_dir,exist_ok=True)
 
-      markups_save_path = os.path.join(rabbit.final_save_dir,f"{str(rabbit.batch).upper()}-{str(rabbit.ID).upper()}-{str(rabbit.position).upper()}-markups.mrk.json")
+      markups_save_path = os.path.join(chicken.final_save_dir,f"{str(chicken.ID).upper()}-{str(chicken.position).upper()}-markups.mrk.json")
 
       storageNode = markups_node.CreateDefaultStorageNode()
       storageNode.SetFileName(markups_save_path)
@@ -891,8 +881,8 @@ def batch_exporter():
 
       slicer.mrmlScene.RemoveNode(storageNode)
 
-      #close rabbit
-      slicer.modules.RabbitVertCountWidget.logic.close_active_rabbit(True)
+      #close chicken
+      slicer.modules.ChickenDeLiveryWidget.logic.close_active_chicken(True)
         
 
         
