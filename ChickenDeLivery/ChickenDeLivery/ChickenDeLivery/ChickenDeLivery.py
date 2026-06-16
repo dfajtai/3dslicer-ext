@@ -305,7 +305,7 @@ class ChickenDeLiveryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     tbl.clear()
     tbl.clearContents()
 
-    db_info_filter = ["ID","position","Comment","done"]
+    db_info_filter = ["ID","position","sex","Comment","done"]
     
     tbl.setColumnCount(len(db_info_filter))
     tbl.setRowCount(len(IDs))
@@ -392,7 +392,7 @@ class ChickenDeLiveryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       load_success = self.logic.load_chicken(ID=_ID, position= _position,volume_rendering=_volume_rendering_)
       self.ui.btnLoadSelected.enabled = not self.logic.hasActiveChicken
       if self.logic.hasActiveChicken:
-        self.ui.lblActiveChicken.text= self.logic.active_chicken.ID
+        self.ui.lblActiveChicken.text= f"{self.logic.active_chicken.ID}-{self.logic.active_chicken.position}"
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
