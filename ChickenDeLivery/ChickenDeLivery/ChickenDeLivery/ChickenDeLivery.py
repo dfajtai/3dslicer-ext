@@ -12,7 +12,7 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 
-root_path = "/nas/medicopus_share/Projects/ANIMALS/kendermagos/liver_segmentation"
+root_path = "/nas/medicopus_share/Projects/ANIMALS/kendermagos/liver_segmentation_ors"
 # root_path = "/media/fajtai/DF64_4/"
 
 _volume_rendering_  = True
