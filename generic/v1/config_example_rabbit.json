@@ -1,0 +1,58 @@
+{
+  "_comment": "Reproduces RabbitVertCount.py using the generic module. JSON has no comments, this key is ignored.",
+
+  "study_dir": "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/20180109",
+  "database_csv_path": "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/20180109/etc/database.csv",
+  "preseg_csv_path": "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/20180109/etc/img_paths.csv",
+
+  "key_columns": ["batch", "ID", "position"],
+  "done_column": "done",
+  "table_columns": ["batch", "ID", "position", "RC_Right", "RC_Left", "HasAtypical1", "V_Total", "HasAtypical2", "V_After", "Comment", "done"],
+  "output_dir_pattern": ["batch"],
+
+  "images": [
+    {
+      "name": "background",
+      "csv_column": "img_path",
+      "type": "volume",
+      "role": "background",
+      "required": true
+    },
+    {
+      "name": "mask",
+      "csv_column": "mask_path",
+      "type": "labelmap",
+      "role": "label",
+      "required": true
+    }
+  ],
+  "label_opacity": 0.1,
+
+  "segmentation": { "enabled": false },
+
+  "landmarks": {
+    "enabled": true,
+    "csv_column": "markups_path",
+    "writable": true,
+    "color": [1, 1, 0]
+  },
+
+  "volume_rendering": {
+    "enabled": true,
+    "source_image": "background",
+    "preset": "CT-Chest-Contrast-Enhanced"
+  },
+
+  "window_level": {
+    "enabled": true,
+    "min": -150,
+    "max": 700
+  },
+
+  "batch_export": {
+    "enabled": true,
+    "export_segments": false,
+    "export_markups": true,
+    "output_dir": "results"
+  }
+}

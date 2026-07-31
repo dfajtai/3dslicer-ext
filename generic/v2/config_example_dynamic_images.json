@@ -1,0 +1,56 @@
+{
+  "_comment": "Not a full study - just demonstrates the dynamic image + preset features. Imagine a preseg.csv with columns: sid, img_t1, img_t2, img_flair, img_dwi, img_adc, mask (some may be empty per row).",
+
+  "study_dir": "/path/to/study",
+  "database_csv_path": "etc/database.csv",
+  "preseg_csv_path": "etc/img_paths.csv",
+
+  "key_columns": ["sid"],
+  "done_column": "done",
+  "table_columns": ["sid", "done"],
+  "output_dir_pattern": ["sid"],
+
+  "images": [
+    {
+      "_comment": "Opens ONE image per non-empty preseg.csv column matching img_*, for THIS specimen. A specimen missing img_dwi/img_adc simply won't get those images loaded; a specimen with 6 sequences gets 6 images. Column 'img_t1' -> image name 't1' (prefix stripped).",
+      "csv_column_pattern": "^img_.*$",
+      "name_strip_prefix": "img_",
+      "type": "volume",
+      "role": null,
+      "required": false,
+      "preset": "mri_default"
+    },
+    {
+      "name": "mask",
+      "csv_column": "mask",
+      "type": "labelmap",
+      "role": "label",
+      "required": false
+    }
+  ],
+
+  "presets": {
+    "mri_default": { "window_level": { "auto": true }, "interpolate": true }
+  },
+
+  "visual_presets": [
+    { "_comment": "T1-like sequences: fixed window/level, grayscale.",
+      "apply_to_pattern": "^t[12]$",
+      "window_level": { "min": 0, "max": 900 },
+      "color_table": "Grey" },
+
+    { "_comment": "Diffusion-related sequences as a named GROUP (list, not regex): different colormap + slightly higher default opacity if ever shown as an overlay.",
+      "apply_to": ["dwi", "adc"],
+      "color_table": "Rainbow" },
+
+    { "_comment": "One specific sequence overridden individually.",
+      "apply_to": ["flair"],
+      "window_level": { "min": 0, "max": 400 } }
+  ],
+
+  "segmentation": { "enabled": false },
+  "landmarks": { "enabled": false },
+  "volume_rendering": { "enabled": false },
+  "window_level": { "enabled": false },
+  "batch_export": { "enabled": false }
+}

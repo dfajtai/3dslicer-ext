@@ -1,0 +1,53 @@
+{
+  "_comment": "Reproduces PigChunker.py using the generic module. JSON has no comments, this key is ignored.",
+
+  "study_dir": "/nas/medicopus_share/Projects/ANIMALS/HARIBO/segmentation_2/segmentation",
+  "database_csv_path": "/nas/medicopus_share/Projects/ANIMALS/HARIBO/segmentation_2/etc/database.csv",
+  "preseg_csv_path": "/nas/medicopus_share/Projects/ANIMALS/HARIBO/segmentation_2/etc/img_paths.csv",
+
+  "key_columns": ["ID", "measurement"],
+  "done_column": "done",
+  "table_columns": ["ID", "measurement", "done"],
+  "output_dir_pattern": ["ID", "measurement"],
+
+  "images": [
+    {
+      "name": "background",
+      "csv_column": "background",
+      "path_pattern": "{ID}/{measurement}/{ID}-{name}.nii.gz",
+      "type": "volume",
+      "role": "background",
+      "required": true
+    },
+    {
+      "name": "mask",
+      "csv_column": "mask",
+      "path_pattern": "{ID}/{measurement}/{ID}-{name}.nii.gz",
+      "type": "volume",
+      "role": "label",
+      "required": true
+    }
+  ],
+  "label_opacity": 0.15,
+
+  "segmentation": {
+    "enabled": true,
+    "mode": "per_label_images",
+    "reference_image": "mask",
+    "segment_names": ["chunk", "body", "belly", "venteral belly", "shoulder", "ham", "loin"],
+    "path_pattern": "{ID}/{measurement}/{ID}-{segment_name}.nii.gz",
+    "output_filename": "segment.seg.nrrd",
+    "opacity": 0.5
+  },
+
+  "landmarks": { "enabled": false },
+  "volume_rendering": { "enabled": false },
+  "window_level": { "enabled": false },
+
+  "batch_export": {
+    "enabled": true,
+    "export_segments": true,
+    "export_markups": false,
+    "reference_image": "mask"
+  }
+}

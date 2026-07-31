@@ -1,0 +1,30 @@
+{
+  "_comment": "Template config. Copy this file, edit the paths/columns for your study, and select it via 'Select .json file' in the module GUI. See README.md for the full schema and config_example_pig.json / config_example_rabbit.json for worked examples.",
+
+  "study_dir": "/path/to/study",
+  "database_csv_path": "etc/database.csv",
+  "preseg_csv_path": "etc/img_paths.csv",
+
+  "key_columns": ["ID"],
+  "done_column": "done",
+  "table_columns": ["ID", "done"],
+  "output_dir_pattern": ["ID"],
+
+  "images": [
+    {
+      "name": "background",
+      "csv_column": "background",
+      "type": "volume",
+      "role": "background",
+      "required": true
+    }
+  ],
+  "label_opacity": 0.15,
+
+  "segmentation": { "enabled": false },
+  "landmarks": { "enabled": false },
+  "volume_rendering": { "enabled": false },
+  "window_level": { "enabled": false },
+
+  "batch_export": { "enabled": false }
+}
