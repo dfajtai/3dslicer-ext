@@ -604,7 +604,7 @@ class GenericSpecimen:
             return
 
         print(f"[GenericSpecimen] closing {self.label}")
-
+        
         if self.volume_rendering_node and slicer.mrmlScene.IsNodePresent(self.volume_rendering_node):
             slicer.mrmlScene.RemoveNode(self.volume_rendering_node)
         self.volume_rendering_node = None
@@ -628,7 +628,7 @@ class GenericSpecimen:
         self.node_dict = {}
         self.segmentation_node = None
         self.markups_node = None
-
+        
 
 # ---------------------------------------------------------------------------
 # GenericSpecimenManagerLogic
