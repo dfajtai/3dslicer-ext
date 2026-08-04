@@ -362,7 +362,7 @@ class GenericSpecimen:
 
     def load(self):
         print(f"[GenericSpecimen] loading {self.label}")
-
+        
         background_node = None
         label_node, label_opacity = None, None
         foreground_node, foreground_opacity = None, None
@@ -425,7 +425,7 @@ class GenericSpecimen:
         vr_cfg = self.cfg["volume_rendering"]
         if vr_cfg.get("enabled"):
             self._start_volume_rendering(vr_cfg)
-
+        
         
     def _configure_segment_editor(self):
         se_cfg = self.cfg.get("segment_editor", {})
@@ -617,7 +617,7 @@ class GenericSpecimen:
         all_nodes = list(self.node_dict.values())
         if self.segmentation_node is not None and self.segmentation_node not in all_nodes:
             all_nodes.append(self.segmentation_node)
-
+                      
         for node in all_nodes:
             try:
                 if node and slicer.mrmlScene.IsNodePresent(node):
