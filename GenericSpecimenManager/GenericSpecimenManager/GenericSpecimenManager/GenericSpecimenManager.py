@@ -1,5 +1,5 @@
 """
-GenericSpecimenModule
+GenericSpecimenManager
 ======================
 
 Thin wrapper around SpecimenViewerCommon/GenericSpecimenEngine.py.
@@ -20,13 +20,13 @@ _COMMON_DIR = os.path.normpath(os.path.join(_THIS_DIR, "..", "SpecimenViewerComm
 if _COMMON_DIR not in sys.path:
     sys.path.append(_COMMON_DIR)
 
-from GenericSpecimenEngine import GenericSpecimenModuleWidgetBase  # noqa: E402
+from GenericSpecimenEngine import GenericSpecimenManagerWidgetBase  # noqa: E402
 
 import slicer
 from slicer.ScriptedLoadableModule import *
 
 
-class GenericSpecimenModule(ScriptedLoadableModule):
+class GenericSpecimenManager(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = "Generic Specimen Viewer"
@@ -41,12 +41,12 @@ writing a new scripted module for every species / study.
         self.parent.acknowledgementText = ""
 
 
-class GenericSpecimenModuleWidget(GenericSpecimenModuleWidgetBase):
+class GenericSpecimenManagerWidget(GenericSpecimenManagerWidgetBase):
     CONFIG_PATH = None   # no fixed config -> config picker stays visible
-    UI_RESOURCE = "UI/GenericSpecimenModule.ui"
+    UI_RESOURCE = "UI/GenericSpecimenManager.ui"
 
 
-class GenericSpecimenModuleTest(ScriptedLoadableModuleTest):
+class GenericSpecimenManagerTest(ScriptedLoadableModuleTest):
     def setUp(self):
         slicer.mrmlScene.Clear()
 

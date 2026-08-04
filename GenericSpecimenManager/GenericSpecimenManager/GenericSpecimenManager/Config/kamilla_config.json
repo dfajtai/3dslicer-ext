@@ -1,0 +1,45 @@
+{
+  "study_dir": "/nas/medicopus_share/Projects/kamilla_maj/slicer_data_source",
+  "database_csv_path": "etc/database.csv",
+  "preseg_csv_path": "etc/img_paths.csv",
+
+  "key_columns": ["software", "accession"],
+  "table_columns": ["accession", "software", "Comment"],
+  "output_dir_pattern": ["software", "accession"],
+
+  "images": [
+    { "name": "native", "csv_column": "nat", "role": "background", "required": true },
+    { "name": "arterial", "csv_column": "art", "required": true },
+    { "name": "portal", "csv_column": "port", "required": true },
+    { "name": "equlibrium", "csv_column": "eq", "required": true },
+    { "name": "water", "csv_column": "water", "required": false },
+    { "name": "last_image", "csv_column": "late", "role": "foreground", "required": true }
+  ],
+
+  "segmentation": {
+    "enabled": true,
+    "reference_image": "native",
+    "segments": [
+      { "name": "liver", "source": "empty", "color": [0.8, 0.35, 0.35] },
+      { "name": "gallbladder", "source": "empty", "color": [0.2, 0.7, 0.3] },
+      { "name": "lesion", "source": "empty", "color": [0.95, 0.85, 0.2] },
+      { "name": "background", "source": "empty", "color": [0.3, 0.3, 0.35] },
+      { "name": "portal_vena", "source": "empty", "color": [0.2, 0.5, 0.85] },
+      { "name": "aorte", "source": "empty", "color": [0.9, 0.15, 0.15] }
+    ],
+    "output_filename": "segment.seg.nrrd",
+    "opacity": 0.8
+  },
+
+  "batch_export": {
+    "enabled": true,
+    "export_segments": true,
+    "reference_image": "native",
+    "segments_filter": ["mask", "non-liver", "worm"]
+  },
+  "segment_editor": {
+    "overwrite_mode": "none",
+    "brush": { "shape": "sphere", "diameter_mm": 5, "relative": false },
+    "active_effect": "Paint"
+  }
+}

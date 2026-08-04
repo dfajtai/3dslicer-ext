@@ -271,17 +271,13 @@ class GenericSpecimen:
             print(f"[GenericSpecimen] no reference volume, skipping empty segment '{name}'")
             return
         dummy = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        volumes_logic = slicer.modules.volumes.logic()
-        volumes_logic.CreateLabelVolumeFromVolume(slicer.mrmlScene, dummy, reference_volume_node)
-        
+        slicer.vtkSlicerVolumesLogic().CreateLabelVolumeFromVolume(slicer.mrmlScene, dummy, reference_volume_node)
         dummy.GetImageData().GetPointData().GetScalars().Fill(0)
         img = slicer.modules.segmentations.logic().CreateOrientedImageDataFromVolumeNode(dummy)
         if color:
-            segment_id = segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(img, name, color)
+            segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(img, name, color)
         else:
-            segment_id = segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(img, name)
-            
-        # print(f"Segment '{segment_id}' created.")
+            segmentation_node.AddSegmentFromBinaryLabelmapRepresentation(img, name)
         slicer.mrmlScene.RemoveNode(dummy)
 
     def _build_segment(self, seg_def, segmentation_node, reference_volume_node):
@@ -337,7 +333,7 @@ class GenericSpecimen:
             for seg_def in seg_cfg.get("segments", []):
                 self._build_segment(seg_def, seg_node, ref_node)
 
-        # seg_node.GetDisplayNode().SetOpacity(seg_cfg.get("opacity", 0.5))
+        seg_node.GetDisplayNode().SetOpacity(seg_cfg.get("opacity", 0.5))
         self.segmentation_node = seg_node
         self.writeable["__segmentation__"] = out_path
 
@@ -414,7 +410,6 @@ class GenericSpecimen:
         seg_cfg = self.cfg["segmentation"]
         if seg_cfg.get("enabled"):
             self._load_segmentation(seg_cfg)
-            self._configure_segment_editor()
 
         lm_cfg = self.cfg["landmarks"]
         if lm_cfg.get("enabled"):
@@ -426,19 +421,9 @@ class GenericSpecimen:
         if vr_cfg.get("enabled"):
             self._start_volume_rendering(vr_cfg)
 
-        
-    def _configure_segment_editor(self):
+    def _configure_segment_editor_node(self, node):
         se_cfg = self.cfg.get("segment_editor", {})
 
-        slicer.util.selectModule("SegmentEditor")
-        slicer.app.processEvents()
-        
-        node = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
-        
-        if node is None:
-            print("Unable to obtain a valid 'vtkMRMLSegmentEditorNode'")
-            return
-                
         overwrite_map = {
             "none": slicer.vtkMRMLSegmentEditorNode.OverwriteNone,                    # "allow overlap"
             "all_segments": slicer.vtkMRMLSegmentEditorNode.OverwriteAllSegments,
@@ -450,36 +435,29 @@ class GenericSpecimen:
         brush_cfg = se_cfg.get("brush")
         if brush_cfg:
             if brush_cfg.get("shape") == "sphere":
-                node.SetAttribute("Paint.BrushSphere", "1")
+                node.SetAttribute("Paint,BrushSphere", "1")
             elif brush_cfg.get("shape") == "circle":
-                node.SetAttribute("Paint.BrushSphere", "0")
+                node.SetAttribute("Paint,BrushSphere", "0")
 
             diameter = brush_cfg.get("diameter_mm")
             if diameter is not None:
                 if brush_cfg.get("relative", False):
-                    node.SetAttribute("Paint.BrushDiameterIsRelative", "1")
-                    node.SetAttribute("Paint.BrushRelativeDiameter", str(diameter))
+                    node.SetAttribute("Paint,BrushDiameterIsRelative", "1")
+                    node.SetAttribute("Paint,BrushRelativeDiameter", str(diameter))
                 else:
-                    node.SetAttribute("Paint.BrushDiameterIsRelative", "0")
-                    node.SetAttribute("Paint.BrushAbsoluteDiameter", str(diameter))
+                    node.SetAttribute("Paint,BrushDiameterIsRelative", "0")
+                    node.SetAttribute("Paint,BrushAbsoluteDiameter", str(diameter))
 
         active_effect = se_cfg.get("active_effect")
         if active_effect:
             node.SetActiveEffectName(active_effect)
-        
-        # To perform adhoc modification from code:
-        # segment_editor_widget = slicer.modules.segmenteditor.widgetRepresentation().self().editor
-        # active_effect = segment_editor_widget.activeEffect()
-        # ... perform modifications like above
-        # segment_editor_widget.activeEffect().updateGUIFromMRML() # ...update
-                
-        # Escape hatch: raw "<EffectName>.<ParamName>" -> value pairs, applied last (override
+
+        # Escape hatch: raw "<EffectName>,<ParamName>" -> value pairs, applied last (override
         # everything above). Useful if the exact attribute key differs on your Slicer version -
         # toggle the setting once by hand in the Segment Editor GUI, then read it back with
         # `editorNode.GetAttribute("Paint,BrushSphere")` in the Python console to confirm the key.
         for key, value in se_cfg.get("attributes", {}).items():
             node.SetAttribute(key, str(value))
-
 
     def _customize_workplace(self):
         # IMPORTANT: get-or-create, never replace. If the Segment Editor module
@@ -495,7 +473,8 @@ class GenericSpecimen:
         if defaultSegmentEditorNode is None:
             defaultSegmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
             slicer.mrmlScene.AddDefaultNode(defaultSegmentEditorNode)
-        
+        self._configure_segment_editor_node(defaultSegmentEditorNode)
+
         sliceCompositeNodes = slicer.util.getNodesByClass('vtkMRMLSliceCompositeNode')
         defaultSliceCompositeNode = slicer.mrmlScene.GetDefaultNodeByClass('vtkMRMLSliceCompositeNode')
         if not defaultSliceCompositeNode:
@@ -524,8 +503,6 @@ class GenericSpecimen:
             for seg_id in list(seg.GetSegmentIDs()):
                 self.segmentation_node.GetDisplayNode().SetSegmentOpacity2DFill(seg_id, 0.85)
                 self.segmentation_node.GetDisplayNode().SetSegmentOpacity2DOutline(seg_id, 1)
-
-
 
     def _start_volume_rendering(self, vr_cfg):
         src_node = self.node_dict.get(vr_cfg.get("source_image"))
@@ -631,10 +608,10 @@ class GenericSpecimen:
 
 
 # ---------------------------------------------------------------------------
-# GenericSpecimenManagerLogic
+# GenericSpecimenModuleLogic
 # ---------------------------------------------------------------------------
 
-class GenericSpecimenManagerLogic(ScriptedLoadableModuleLogic):
+class GenericSpecimenModuleLogic(ScriptedLoadableModuleLogic):
 
     def __init__(self):
         ScriptedLoadableModuleLogic.__init__(self)
@@ -671,7 +648,7 @@ class GenericSpecimenManagerLogic(ScriptedLoadableModuleLogic):
                 try:
                     self.load_config(config_path)
                 except Exception as e:
-                    print(f"[GenericSpecimenManager] failed to load config '{config_path}': {e}")
+                    print(f"[GenericSpecimenModule] failed to load config '{config_path}': {e}")
 
         if self.cfg:
             if not parameterNode.GetParameter("DatabaseCSVPath"):
@@ -732,7 +709,7 @@ class GenericSpecimenManagerLogic(ScriptedLoadableModuleLogic):
             specimen.done_col_index = self.dbColumnNames.index(done_col) if done_col in self.dbColumnNames else None
             self.specimens[key] = specimen
 
-        print(f"[GenericSpecimenManager] initialized {len(self.specimens)} specimens")
+        print(f"[GenericSpecimenModule] initialized {len(self.specimens)} specimens")
 
     def _table_to_dicts(self, table, return_columns=False):
         dict_list = []
@@ -806,17 +783,17 @@ class GenericSpecimenManagerLogic(ScriptedLoadableModuleLogic):
 
 
 # ---------------------------------------------------------------------------
-# GenericSpecimenManagerWidgetBase
+# GenericSpecimenModuleWidgetBase
 #
 # Subclass this per species. The subclass sets CONFIG_PATH (or leaves it
 # None to keep the config picker visible, for prototyping - see
-# GenericSpecimenManager.py) and UI_RESOURCE. See DeerSegmentor.py.
+# GenericSpecimenModule.py) and UI_RESOURCE. See DeerSegmentor.py.
 # ---------------------------------------------------------------------------
 
-class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class GenericSpecimenModuleWidgetBase(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     CONFIG_PATH = None                              # absolute path to this species' config.json, or None
-    UI_RESOURCE = "UI/GenericSpecimenManager.ui"      # resourcePath(...)-relative path to the .ui file
+    UI_RESOURCE = "UI/GenericSpecimenModule.ui"      # resourcePath(...)-relative path to the .ui file
 
     def __init__(self, parent=None):
         ScriptedLoadableModuleWidget.__init__(self, parent)
@@ -836,7 +813,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
         self.ui = slicer.util.childWidgetVariables(uiWidget)
         uiWidget.setMRMLScene(slicer.mrmlScene)
 
-        self.logic = GenericSpecimenManagerLogic()
+        self.logic = GenericSpecimenModuleLogic()
         self.logic.default_config_path = self.CONFIG_PATH
 
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
@@ -861,7 +838,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
 
         # If this wrapper module is locked to a single config (CONFIG_PATH set),
         # hide the config picker row - there is nothing to switch between.
-        # Leave CONFIG_PATH = None (as in GenericSpecimenManager.py) to keep it
+        # Leave CONFIG_PATH = None (as in GenericSpecimenModule.py) to keep it
         # visible, e.g. for trying out a new study before it gets its own
         # named wrapper module.
         if self.CONFIG_PATH:
@@ -1031,7 +1008,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
 
             col_name = columns[col]
             if col_name not in self.logic.dbColumnNames:
-                print(f"[GenericSpecimenManager] column '{col_name}' not present in database.csv, not writing back")
+                print(f"[GenericSpecimenModule] column '{col_name}' not present in database.csv, not writing back")
                 return
             real_col = self.logic.dbColumnNames.index(col_name)
 
