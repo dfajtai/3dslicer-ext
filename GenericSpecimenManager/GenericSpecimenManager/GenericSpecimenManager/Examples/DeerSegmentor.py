@@ -21,7 +21,7 @@ _COMMON_DIR = os.path.normpath(os.path.join(_THIS_DIR, "..", "SpecimenViewerComm
 if _COMMON_DIR not in sys.path:
     sys.path.append(_COMMON_DIR)
 
-from GenericSpecimenEngine import GenericSpecimenModuleWidgetBase  # noqa: E402
+from GenericSpecimenManager.GenericSpecimenManager.GenericSpecimenManager.Resources.GenericSpecimenEngine import GenericSpecimenModuleWidgetBase  # noqa: E402
 
 import qt
 import slicer

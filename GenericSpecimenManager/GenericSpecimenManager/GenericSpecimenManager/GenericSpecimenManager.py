@@ -34,16 +34,18 @@ class GenericSpecimenManager(ScriptedLoadableModule):
         self.parent.dependencies = []
         self.parent.contributors = ["Daniel Fajtai"]
         self.parent.helpText = """
-A generic, JSON-configurable specimen loader / segmenter / landmarker.
-Point it at a study config.json (see README.md for the schema) instead of
-writing a new scripted module for every species / study.
-"""
+        A generic, JSON-configurable specimen loader / segmenter / landmarker.
+        Point it at a study config.json (see README.md for the schema) instead of
+        writing a new scripted module for every species / study.
+        """
         self.parent.acknowledgementText = ""
-
+       
+        
 
 class GenericSpecimenManagerWidget(GenericSpecimenManagerWidgetBase):
     CONFIG_PATH = None   # no fixed config -> config picker stays visible
     UI_RESOURCE = "UI/GenericSpecimenManager.ui"
+    
 
 
 class GenericSpecimenManagerTest(ScriptedLoadableModuleTest):

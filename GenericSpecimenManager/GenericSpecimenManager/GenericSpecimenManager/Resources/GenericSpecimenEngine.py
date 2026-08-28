@@ -817,6 +817,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
 
     CONFIG_PATH = None                              # absolute path to this species' config.json, or None
     UI_RESOURCE = "UI/GenericSpecimenManager.ui"      # resourcePath(...)-relative path to the .ui file
+    DEFAULT_CONFIG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Config")
 
     def __init__(self, parent=None):
         ScriptedLoadableModuleWidget.__init__(self, parent)
@@ -858,7 +859,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
         self.ui.btnSaveActiveSpecimen.connect('clicked(bool)', self.onBtnSaveActiveSpecimen)
         self.ui.btnCloseActiveSpecimen.connect('clicked(bool)', self.onBtnCloseActiveSpecimen)
         self.ui.btnSaveDB.connect('clicked(bool)', self.onBtnSaveDB)
-
+       
         # If this wrapper module is locked to a single config (CONFIG_PATH set),
         # hide the config picker row - there is nothing to switch between.
         # Leave CONFIG_PATH = None (as in GenericSpecimenManager.py) to keep it
@@ -906,7 +907,11 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
         self._updatingGUIFromParameterNode = True
-        self.ui.tbConfigPath.text = str(self._parameterNode.GetParameter("ConfigPath"))
+        
+        if os.path.exists(self.DEFAULT_CONFIG_FOLDER) and str(self._parameterNode.GetParameter("ConfigPath")) == "":
+            self.ui.tbConfigPath.text = str(self.DEFAULT_CONFIG_FOLDER)
+        else:
+            self.ui.tbConfigPath.text = str(self._parameterNode.GetParameter("ConfigPath"))
         self.ui.tbDBPath.text = str(self._parameterNode.GetParameter("DatabaseCSVPath"))
         self.ui.tbPresegPath.text = str(self._parameterNode.GetParameter("PresegCSVPath"))
         self._updatingGUIFromParameterNode = False
