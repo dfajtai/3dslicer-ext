@@ -24,6 +24,7 @@ images to share a look, give them the same "preset" name.
 import os
 import re
 import json
+from pathlib import Path
 
 import qt
 import vtk
@@ -336,6 +337,7 @@ class GenericSpecimen:
                 seg_node.SetReferenceImageGeometryParameterFromVolumeNode(ref_node)
             for seg_def in seg_cfg.get("segments", []):
                 self._build_segment(seg_def, seg_node, ref_node)
+            seg_node.SetName("Segmentation")
 
         # seg_node.GetDisplayNode().SetOpacity(seg_cfg.get("opacity", 0.5))
         self.segmentation_node = seg_node
@@ -376,6 +378,7 @@ class GenericSpecimen:
             try:
                 path = self.resolve_image_path(img_cfg)
                 node = slicer.util.loadLabelVolume(path) if itype == "labelmap" else slicer.util.loadVolume(path)
+                node.SetName(name)
             except Exception as e:
                 if required:
                     raise
@@ -448,21 +451,45 @@ class GenericSpecimen:
         node.SetOverwriteMode(overwrite_map.get(overwrite_mode, slicer.vtkMRMLSegmentEditorNode.OverwriteNone))
 
         brush_cfg = se_cfg.get("brush")
+        
         if brush_cfg:
-            if brush_cfg.get("shape") == "sphere":
-                node.SetAttribute("Paint.BrushSphere", "1")
-            elif brush_cfg.get("shape") == "circle":
-                node.SetAttribute("Paint.BrushSphere", "0")
+        #     if brush_cfg.get("shape") == "sphere":
+        #         node.SetAttribute("Paint.BrushSphere", "1")
+        #     elif brush_cfg.get("shape") == "circle":
+        #         node.SetAttribute("Paint.BrushSphere", "0")
 
-            diameter = brush_cfg.get("diameter_mm")
-            if diameter is not None:
-                if brush_cfg.get("relative", False):
-                    node.SetAttribute("Paint.BrushDiameterIsRelative", "1")
-                    node.SetAttribute("Paint.BrushRelativeDiameter", str(diameter))
-                else:
-                    node.SetAttribute("Paint.BrushDiameterIsRelative", "0")
-                    node.SetAttribute("Paint.BrushAbsoluteDiameter", str(diameter))
+        #     diameter = brush_cfg.get("diameter_mm")
+        #     if diameter is not None:
+        #         if brush_cfg.get("relative", False):
+        #             node.SetAttribute("Paint.BrushDiameterIsRelative", "1")
+        #             node.SetAttribute("Paint.BrushRelativeDiameter", str(diameter))
+        #         else:
+        #             node.SetAttribute("Paint.BrushDiameterIsRelative", "0")
+        #             node.SetAttribute("Paint.BrushAbsoluteDiameter", str(diameter))
 
+            # Retrieve the main Segment Editor widget from the UI
+            segment_editor_widget = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            
+            # Fetch the 'Paint' effect instance directly
+            paint_effect = segment_editor_widget.effectByName("Paint")
+            
+            if paint_effect:
+                # Set parameters on the effect itself to trigger state and UI updates properly
+                if brush_cfg.get("shape") == "sphere":
+                    paint_effect.setParameter("BrushSphere", 1)
+                elif brush_cfg.get("shape") == "circle":
+                    paint_effect.setParameter("BrushSphere", 0)
+
+                diameter = brush_cfg.get("diameter_mm")
+                if diameter is not None:
+                    if brush_cfg.get("relative", False):
+                        paint_effect.setParameter("BrushDiameterIsRelative", 1)
+                        paint_effect.setParameter("BrushRelativeDiameter", diameter)
+                    else:
+                        paint_effect.setParameter("BrushDiameterIsRelative", 0)
+                        paint_effect.setParameter("BrushAbsoluteDiameter", diameter)
+            
+        
         active_effect = se_cfg.get("active_effect")
         if active_effect:
             node.SetActiveEffectName(active_effect)
@@ -788,11 +815,14 @@ class GenericSpecimenManagerLogic(ScriptedLoadableModuleLogic):
         self.active_specimen.close()
         self.active_specimen = None
 
-    def save_active_specimen(self):
+    def save_active_specimen(self, inform_user=True):
         if not isinstance(self.active_specimen, GenericSpecimen):
             self.info("There is no active specimen to save.")
             return
         self.active_specimen.save()
+        if inform_user:
+            self.info(f"Specimen '{self.active_specimen.key_values}' saved.")
+
 
     def save_db(self):
         db_path = self.getParameterNode().GetParameter("DatabaseCSVPath")
@@ -817,7 +847,10 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
 
     CONFIG_PATH = None                              # absolute path to this species' config.json, or None
     UI_RESOURCE = "UI/GenericSpecimenManager.ui"      # resourcePath(...)-relative path to the .ui file
-    DEFAULT_CONFIG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Config")
+    
+    BASE_DIR = Path(os.path.abspath(__file__)).resolve().parent
+    
+    DEFAULT_CONFIG_FOLDER = str(BASE_DIR.parent / "Config")
 
     def __init__(self, parent=None):
         ScriptedLoadableModuleWidget.__init__(self, parent)
