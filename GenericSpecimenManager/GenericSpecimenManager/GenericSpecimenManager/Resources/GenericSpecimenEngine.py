@@ -473,6 +473,23 @@ class GenericSpecimen:
             # Fetch the 'Paint' effect instance directly
             paint_effect = segment_editor_widget.effectByName("Paint")
             
+            
+            # 1. Update MRML node attributes (Strictly requires string values)
+            node.SetAttribute("Paint.BrushSphere", "1" if brush_cfg.get("shape") == "sphere" else "0")
+            
+            
+            node.SetAttribute("Paint.BrushDiameterIsRelative", "1" if brush_cfg.get("relative", False) else "0")
+            
+            diameter = brush_cfg.get("diameter_mm")
+            if diameter is not None:
+                if brush_cfg.get("relative", False):
+                    node.SetAttribute("Paint.BrushRelativeDiameter", str(diameter))
+                else:
+                    node.SetAttribute("Paint.BrushAbsoluteDiameter", str(diameter))
+                
+            
+            
+            # 2. Update the effect parameters to keep the active tool state synced
             if paint_effect:
                 # Set parameters on the effect itself to trigger state and UI updates properly
                 if brush_cfg.get("shape") == "sphere":
@@ -480,7 +497,6 @@ class GenericSpecimen:
                 elif brush_cfg.get("shape") == "circle":
                     paint_effect.setParameter("BrushSphere", 0)
 
-                diameter = brush_cfg.get("diameter_mm")
                 if diameter is not None:
                     if brush_cfg.get("relative", False):
                         paint_effect.setParameter("BrushDiameterIsRelative", 1)
@@ -488,7 +504,8 @@ class GenericSpecimen:
                     else:
                         paint_effect.setParameter("BrushDiameterIsRelative", 0)
                         paint_effect.setParameter("BrushAbsoluteDiameter", diameter)
-            
+                        
+            segment_editor_widget.updateWidgetFromMRML()
         
         active_effect = se_cfg.get("active_effect")
         if active_effect:
