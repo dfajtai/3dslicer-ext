@@ -36,6 +36,8 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
+from Resources.ConfigBuilderDialog import ConfigBuilderDialog
+
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -350,8 +352,15 @@ class GenericSpecimen:
         try:
             m_node = slicer.util.loadMarkups(m_path)
         except Exception:
-            print(f"[GenericSpecimen] markups not found at '{m_path}', creating a new fiducial list")
-            m_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", f"{self.label}-markups")
+            template_path = lm_cfg.get("template_path")
+            if template_path and os.path.exists(template_path):
+                print(f"[GenericSpecimen] markups not found at '{m_path}', "
+                      f"loading template '{template_path}' as a starting point")
+                m_node = slicer.util.loadMarkups(template_path)
+                m_node.SetName(f"{self.label}-markups")
+            else:
+                print(f"[GenericSpecimen] markups not found at '{m_path}', creating a new fiducial list")
+                m_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", f"{self.label}-markups")
         color = lm_cfg.get("color")
         if color and m_node.GetDisplayNode():
             m_node.GetDisplayNode().SetColor(*color)
@@ -432,16 +441,18 @@ class GenericSpecimen:
         
     def _configure_segment_editor(self):
         se_cfg = self.cfg.get("segment_editor", {})
+        if not se_cfg:
+            return
 
         slicer.util.selectModule("SegmentEditor")
         slicer.app.processEvents()
-        
+
         segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
-        
+
         if segmentEditorNode is None:
             print("Unable to obtain a valid 'vtkMRMLSegmentEditorNode'")
             return
-                
+
         overwrite_map = {
             "none": slicer.vtkMRMLSegmentEditorNode.OverwriteNone,                    # "allow overlap"
             "all_segments": slicer.vtkMRMLSegmentEditorNode.OverwriteAllSegments,
@@ -450,34 +461,50 @@ class GenericSpecimen:
         overwrite_mode = se_cfg.get("overwrite_mode", "none")
         segmentEditorNode.SetOverwriteMode(overwrite_map.get(overwrite_mode, slicer.vtkMRMLSegmentEditorNode.OverwriteNone))
 
+        # Brush settings are stored as plain attributes on segmentEditorNode -
+        # the SAME mechanism the Paint effect's own GUI spin boxes/checkboxes
+        # use internally (effect.setParameter() is just a wrapper around
+        # SetAttribute() on this node). Doing it this way, instead of grabbing
+        # the live effect object and calling setParameter() on it directly,
+        # means:
+        #   - it doesn't require Paint to already be the active effect (so it
+        #     no longer depends on "active_effect" below - previously the
+        #     whole brush block was nested inside `if active_effect:` and was
+        #     silently skipped whenever active_effect wasn't set),
+        #   - the widget picks the value up through its normal
+        #     updateGUIFromMRML() refresh cycle, so subsequent manual edits
+        #     from the GUI keep working afterward instead of the brush size
+        #     control becoming unresponsive.
         brush_cfg = se_cfg.get("brush")
-        
         if brush_cfg:
-            # Retrieve the main Segment Editor widget from the UI
-            segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor
-            
-            active_effect = se_cfg.get("active_effect")
-            if active_effect:
-                segmentEditorNode.SetActiveEffectName(active_effect)
-            
-                effect = segmentEditorWidget.activeEffect()           
-                
-                # 2. Update the effect parameters to keep the active tool state synced
-                if effect:
-                    # Set parameters on the effect itself to trigger state and UI updates properly
-                    if brush_cfg.get("shape") == "sphere":
-                        effect.setParameter("BrushSphere", 1)
-                    elif brush_cfg.get("shape") == "circle":
-                        effect.setParameter("BrushSphere", 0)
+            if brush_cfg.get("shape") == "sphere":
+                segmentEditorNode.SetAttribute("Paint,BrushSphere", "1")
+            elif brush_cfg.get("shape") == "circle":
+                segmentEditorNode.SetAttribute("Paint,BrushSphere", "0")
 
-                    diameter = brush_cfg.get("diameter_mm")
-                    if diameter is not None:
-                        if brush_cfg.get("relative", False):
-                            # effect.setParameter("BrushDiameterIsRelative", "1")
-                            effect.setParameter("BrushRelativeDiameter", str(diameter))
-                        else:
-                            # effect.setParameter("BrushDiameterIsRelative", "0")
-                            effect.setParameter("BrushAbsoluteDiameter", str(diameter))
+            diameter = brush_cfg.get("diameter_mm")
+            if diameter is not None:
+                if brush_cfg.get("relative", False):
+                    segmentEditorNode.SetAttribute("Paint,BrushDiameterIsRelative", "1")
+                    segmentEditorNode.SetAttribute("Paint,BrushRelativeDiameter", str(diameter))
+                else:
+                    segmentEditorNode.SetAttribute("Paint,BrushDiameterIsRelative", "0")
+                    segmentEditorNode.SetAttribute("Paint,BrushAbsoluteDiameter", str(diameter))
+
+        # Escape hatch: raw "<Effect>,<Param>" -> value pairs, applied last (overrides
+        # everything above). Useful if the exact attribute key differs on your Slicer
+        # version - toggle the setting once by hand in the Segment Editor GUI, then
+        # read it back with `segmentEditorNode.GetAttribute("Paint,BrushSphere")` in
+        # the Python console to confirm the key.
+        for key, value in se_cfg.get("attributes", {}).items():
+            segmentEditorNode.SetAttribute(key, str(value))
+
+        # active_effect only decides which effect is pre-selected when you switch
+        # to the module - it no longer gates whether brush/attributes get applied.
+        active_effect = se_cfg.get("active_effect")
+        if active_effect:
+            segmentEditorNode.SetActiveEffectName(active_effect)
+            slicer.app.processEvents()
 
 
     def _customize_workplace(self):
@@ -860,6 +887,7 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
         self.ui.btnSelectDB.connect('clicked(bool)', self.onBtnSelectDB)
         self.ui.btnSelectPreseg.connect('clicked(bool)', self.onBtnSelectPreseg)
         self.ui.btnBatchExport.connect('clicked(bool)', self.onBtnBatchExport)
+        self.ui.btnConfigBuilder.connect('clicked(bool)', self.onBtnConfigBuilder)
         self.ui.btnLoadSelected.connect('clicked(bool)', self.onBtnLoadSelected)
         self.ui.btnSaveActiveSpecimen.connect('clicked(bool)', self.onBtnSaveActiveSpecimen)
         self.ui.btnCloseActiveSpecimen.connect('clicked(bool)', self.onBtnCloseActiveSpecimen)
@@ -943,6 +971,14 @@ class GenericSpecimenManagerWidgetBase(ScriptedLoadableModuleWidget, VTKObservat
             self._parameterNode.SetParameter("PresegCSVPath", self.logic._abs_path(self.logic.cfg.get("preseg_csv_path", "")))
         except Exception as e:
             slicer.util.errorDisplay(f"Failed to load config: {e}")
+
+    def onBtnConfigBuilder(self):
+        # Keep a reference on self - otherwise Python garbage-collects the
+        # dialog as soon as this method returns since nothing else holds it.
+        self._configBuilderDialog = ConfigBuilderDialog(slicer.util.mainWindow())
+        self._configBuilderDialog.setWindowModality(qt.Qt.NonModal)
+        self._configBuilderDialog.show()
+        self._configBuilderDialog.raise_()
 
     def onBtnSelectDB(self):
         fname = QFileDialog.getOpenFileName(None, 'Open file', str(self.ui.tbDBPath.text), "CSV files (*.csv)")
