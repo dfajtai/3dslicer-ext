@@ -340,7 +340,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     print(f"Selecting batch '{batch_number}' -> '{batch_name}'")
     if self.logic.hasActiveRabbit:
-      rabbit_closed = self.logic.close_active_rabbit()
+      rabbit_closed = self.onBtnCloseActiveRabbit()
       if not rabbit_closed:
         self.ui.comboBoxBatchSelect.setCurrentIndex(self.selected_batch_index)
         print("Batch select aborted.")
@@ -497,11 +497,13 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.btnLoadSelected.enabled = not self.logic.hasActiveRabbit
       if not self.logic.hasActiveRabbit:
         self.ui.lblActiveRabbit.text= ""
-
+      return close_success
+      
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
       import traceback
       traceback.print_exc()
+      return False
   
   def onBtnSaveDB(self):
     try:
