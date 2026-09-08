@@ -327,9 +327,11 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       return
     
     if self.logic.dbTable is not None:
-      if not self.logic.confim_message_box("There is a study/batch already initialized. Do you want to close it (without saving) and open a new one?"):
+      if not self.logic.confim_message_box("There is a study/batch already initialized. Do you want to close it and open a new one?"):
         self.ui.comboBoxBatchSelect.setCurrentIndex(self.selected_batch_index)
         return
+      if self.logic.confim_message_box("Do you want to save the study before opening the new one?"):
+        self.logic.save_db()
 
     selected_text = self.ui.comboBoxBatchSelect.currentText
 
