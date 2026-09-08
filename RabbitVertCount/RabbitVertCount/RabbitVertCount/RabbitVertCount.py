@@ -13,7 +13,7 @@ from slicer.util import VTKObservationMixin
 
 
 root_path = "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/"
-# root_path = "/media/fajtai/DF64_4/"
+# root_path = "C:\\nyulak\\data"
 
 batches = {1: "20180109",
            2: "2015047",
@@ -21,7 +21,6 @@ batches = {1: "20180109",
            4: "anyak_20260908", 
            5: "apak_20260908"}
 
-# EZT KELL ÁTÍRNI
 batch_number = 1
 
 batch_path = os.path.join(root_path,batches.get(batch_number))
@@ -151,6 +150,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.btnBatchExport.connect('clicked(bool)',self.onBtnBatchExport)
     self.ui.btnLoadSelected.connect('clicked(bool)',self.onBtnLoadSelected)
     self.ui.btnSaveActiveRabbit.connect('clicked(bool)',self.onBtnSaveActiveRabbit)
+    self.ui.btnSaveDB.enabled = False
+    
     self.ui.btnCloseActiveRabbit.connect('clicked(bool)',self.onBtnCloseActiveRabbit)
     self.ui.btnSaveDB.connect('clicked(bool)',self.onBtnSaveDB)
     
@@ -160,6 +161,7 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.comboBoxBatchSelect.setCurrentIndex(0)
     
     self.ui.comboBoxBatchSelect.currentIndexChanged.connect(self.onBatchChange)
+    
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -302,6 +304,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       print("btnInitializeStudy clicked")
       self.logic.initializeStudy()
       self.show_rabbit_db_table()
+      self.ui.btnSaveDB.enabled = True
+      
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
@@ -320,10 +324,15 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     selected_text = self.ui.comboBoxBatchSelect.currentText
 
-    batch_index, batch = str(selected_text).split(':')
+    batch_index, batch_name = str(selected_text).split(':')
     batch_number = int(batch_index)
     
-    print(f"Selecting batch '{batch_index}' -> '{batch}'")
+    print(f"Selecting batch '{batch_number}' -> '{batch_name}'")
+    
+    self.logic.closeStudy()
+    self.show_rabbit_db_table()
+    self.ui.btnSaveDB.enabled = False
+    
     
     batch_path = os.path.join(root_path,batches.get(batch_number))    
     __study_dir__ =  os.path.join(batch_path)
@@ -333,10 +342,13 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic._study_dir_ = os.path.join(batch_path)
     self.logic._root_dir_ = fix_path(batch_path)
     
+    print(f"DB path: '{self.logic._database_csv_path_}'")
+    print(f"Preseg path: '{self.logic._preseg_csv_path_}'")
+
     self.ui.tbDBPath.text = fix_path(str(self.logic._database_csv_path_))
     self.ui.tbPresegPath.text = fix_path(str(self.logic._preseg_csv_path_))
-  
     
+
     
   def show_rabbit_db_table(self):
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
@@ -557,7 +569,7 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
       self.dbTable = slicer.util.loadTable(db_path)
 
     try:
-      _node = _node = slicer.util.getNode(self.get_node_if_loaded(preseg_path))
+      _node = slicer.util.getNode(self.get_node_if_loaded(preseg_path))
       self.presegTable = _node
     except slicer.util.MRMLNodeNotFoundException:
       self.presegTable = slicer.util.loadTable(preseg_path)    
@@ -578,7 +590,26 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
                                                              presegDictList = self.presegDictList, 
                                                              study_dir = self._study_dir_)) for (batch, ID, position) in self.ID_list])
 
-  
+  def closeStudy(self):
+    if isinstance(self.dbTable, type(None)):
+      return
+
+    
+    slicer.mrmlScene.RemoveNode(self.dbTable)
+    slicer.mrmlScene.RemoveNode(self.presegTable)
+
+    self.dbTable = None
+    self.dbDictList = []
+
+    self.presegTable = None
+    self.presegDictList = []
+    
+    self.ID_list = []
+    self.rabbits = {}
+
+    self.active_rabbit = None
+        
+    
 
   def init_table(self,table):
     dict_list = []
@@ -651,8 +682,12 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
     self.info_message_box("Save complete. You can safely close the rabbit.")
 
   def save_db(self):
+    if not self.confim_message_box(f"Do you really want to overwite DB at '{self._database_csv_path_}'?"):
+      return
+    
     _storageNode = self.dbTable.CreateDefaultStorageNode()
     _storageNode.SetFileName(self._database_csv_path_)
+    
     _storageNode.WriteData(self.dbTable)
 
 
