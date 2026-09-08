@@ -103,6 +103,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.tbl_selected_key = "" # f"{batch}-{ID}-{position}
     self.tblSelectedIndex = None
     self.table_lock = False
+    
+    self.selected_batch_index = None
 
 
   def setup(self):
@@ -158,10 +160,9 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     for batch_index in batches.keys():
       self.ui.comboBoxBatchSelect.addItem(f"{batch_index}:{batches[batch_index]}")
     
-    self.ui.comboBoxBatchSelect.setCurrentIndex(0)
-    
     self.ui.comboBoxBatchSelect.currentIndexChanged.connect(self.onBatchChange)
-    
+    self.ui.comboBoxBatchSelect.setCurrentIndex(0)
+    self.selected_batch_index = 0
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -321,6 +322,14 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     if index < 0:
         return
+    
+    if index == self.selected_batch_index:
+      return
+    
+    if self.logic.dbTable is not None:
+      if not self.logic.confim_message_box("There is a study/batch already initialized. Do you want to close it (without saving) and open a new one?"):
+        self.ui.comboBoxBatchSelect.setCurrentIndex(self.selected_batch_index)
+        return
 
     selected_text = self.ui.comboBoxBatchSelect.currentText
 
@@ -328,6 +337,14 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     batch_number = int(batch_index)
     
     print(f"Selecting batch '{batch_number}' -> '{batch_name}'")
+    if self.logic.hasActiveRabbit:
+      rabbit_closed = self.logic.close_active_rabbit()
+      if not rabbit_closed:
+        self.ui.comboBoxBatchSelect.setCurrentIndex(self.selected_batch_index)
+        print("Batch select aborted.")
+        return
+      
+      self.ui.btnLoadSelected.enabled = not self.logic.hasActiveRabbit
     
     self.logic.closeStudy()
     self.show_rabbit_db_table()
@@ -347,6 +364,8 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.tbDBPath.text = fix_path(str(self.logic._database_csv_path_))
     self.ui.tbPresegPath.text = fix_path(str(self.logic._preseg_csv_path_))
+    
+    self.selected_batch_index = index
     
 
     
@@ -661,16 +680,18 @@ class RabbitVertCountLogic(ScriptedLoadableModuleLogic):
     if no_question and not isinstance(self.active_rabbit,type(None)):
       self.active_rabbit.close()
       self.active_rabbit = None
-      return
+      return True
 
     if not isinstance(self.active_rabbit,Rabbit):
       self.info_message_box("There is no active rabbit to close.")
-      return
+      return False
 
     if not self.confim_message_box("Do you really want to close the active rabbit?"):
-      return
+      return False
     self.active_rabbit.close()
     self.active_rabbit = None
+    
+    return True
 
   def save_active_rabbit(self):
     if not isinstance(self.active_rabbit,Rabbit):
