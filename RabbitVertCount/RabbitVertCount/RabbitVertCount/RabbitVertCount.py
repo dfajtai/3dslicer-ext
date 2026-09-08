@@ -15,8 +15,11 @@ from slicer.util import VTKObservationMixin
 root_path = "/nas/medicopus_share/Projects/ANIMALS/RABBIT_CT_BONE/manual_work/"
 # root_path = "/media/fajtai/DF64_4/"
 
-batches = {2: "2015047",
-           1: "20180109"}
+batches = {1: "20180109",
+           2: "2015047",
+           3: "20260429",
+           4: "anyak_20260908", 
+           5: "apak_20260908"}
 
 # EZT KELL ÁTÍRNI
 batch_number = 1
@@ -33,7 +36,6 @@ __study_dir__ =  os.path.join(batch_path)
 
 def fix_path(rel_path):
   return os.path.join(str(__study_dir__), rel_path)
-
 
 #
 # RabbitVertCount
@@ -151,6 +153,13 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.btnSaveActiveRabbit.connect('clicked(bool)',self.onBtnSaveActiveRabbit)
     self.ui.btnCloseActiveRabbit.connect('clicked(bool)',self.onBtnCloseActiveRabbit)
     self.ui.btnSaveDB.connect('clicked(bool)',self.onBtnSaveDB)
+    
+    for batch_index in batches.keys():
+      self.ui.comboBoxBatchSelect.addItem(f"{batch_index}:{batches[batch_index]}")
+    
+    self.ui.comboBoxBatchSelect.setCurrentIndex(0)
+    
+    self.ui.comboBoxBatchSelect.currentIndexChanged.connect(self.onBatchChange)
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -299,6 +308,36 @@ class RabbitVertCountWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       import traceback
       traceback.print_exc()
 
+  def onBatchChange(self, index):
+    global root_path
+    global batches
+    global batch_number
+    global batch_path
+    global __study_dir__
+    
+    if index < 0:
+        return
+
+    selected_text = self.ui.comboBoxBatchSelect.currentText
+
+    batch_index, batch = str(selected_text).split(':')
+    batch_number = int(batch_index)
+    
+    print(f"Selecting batch '{batch_index}' -> '{batch}'")
+    
+    batch_path = os.path.join(root_path,batches.get(batch_number))    
+    __study_dir__ =  os.path.join(batch_path)
+
+    self.logic._database_csv_path_ = os.path.join(batch_path,"etc","database.csv")
+    self.logic._preseg_csv_path_ = os.path.join(batch_path,"etc","img_paths.csv")
+    self.logic._study_dir_ = os.path.join(batch_path)
+    self.logic._root_dir_ = fix_path(batch_path)
+    
+    self.ui.tbDBPath.text = fix_path(str(self.logic._database_csv_path_))
+    self.ui.tbPresegPath.text = fix_path(str(self.logic._preseg_csv_path_))
+  
+    
+    
   def show_rabbit_db_table(self):
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
